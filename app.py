@@ -152,7 +152,19 @@ def update_status(entry_id, status):
     flash('Status zaktualizowany!', 'success')
     return redirect(url_for('my_library'))
 
-
+@app.route('/remove_from_library/<int:entry_id>', methods=['POST'])
+@login_required
+def remove_from_library(entry_id):
+    entry = UserLibrary.query.get_or_404(entry_id)
+    
+    if entry.library_user.id != current_user.id:
+        flash('Brak uprawnień!', 'danger')
+        return redirect(url_for('my_library'))
+    
+    db.session.delete(entry)
+    db.session.commit()
+    flash('Książka została usunięta z biblioteki', 'success')
+    return redirect(url_for('my_library'))
 
 with app.app_context():
     # db.drop_all()
