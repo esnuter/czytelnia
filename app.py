@@ -5,7 +5,7 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, ValidationError
 from extensions import db, login_manager, bcrypt
 from models import *
-from wtforms import TextAreaField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from sqlalchemy import and_
 
 app = Flask(__name__)
@@ -20,7 +20,7 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Register Form
+# Forms
 class RegisterForm(FlaskForm):
     username = StringField('Nazwa użytkownika', validators=[DataRequired(), Length(min=3, max=50)])
     password = PasswordField('Hasło', validators=[DataRequired(), Length(min=6)])
@@ -31,7 +31,6 @@ class RegisterForm(FlaskForm):
         if user:
             raise ValidationError('Nazwa użytkownika zajęta!')
 
-# Login Form
 class LoginForm(FlaskForm):
     username = StringField('Nazwa użytkownika', validators=[DataRequired()])
     password = PasswordField('Hasło', validators=[DataRequired()])
@@ -42,6 +41,22 @@ class BookForm(FlaskForm):
     author = StringField('Autor', validators=[DataRequired()])  
     description = TextAreaField('Opis')  
     submit = SubmitField('Dodaj książkę')  
+
+class ReviewForm(FlaskForm):
+    rating = SelectField(
+      'Ocena', 
+      choices=[(1, '1 ★'), (2, '2 ★'), (3, '3 ★'), (4, '4 ★'), (5, '5 ★')],
+      coerce=int, 
+      validators=[DataRequired(message="Wybierz ocenę")]
+    )
+    text = TextAreaField(
+        'Recenzja',
+        validators=[
+            DataRequired(message="Recenzja nie może być pusta"),
+            Length(min=10, max=1000, message="Recenzja powinna mieć od 10 do 1000 znaków")
+        ]
+    )
+    submit = SubmitField('Dodaj recenzję')
 
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
@@ -165,6 +180,43 @@ def remove_from_library(entry_id):
     db.session.commit()
     flash('Książka została usunięta z biblioteki', 'success')
     return redirect(url_for('my_library'))
+
+@app.route('/add_review/<int:book_id>', methods=['GET', 'POST'])
+@login_required
+def add_review(book_id):
+    book = Book.query.get_or_404(book_id)
+    form = ReviewForm()
+    
+    if form.validate_on_submit():
+        review = Review(
+            rating=form.rating.data,
+            text=form.text.data,
+            user_id=current_user.id,
+            book_id=book.id
+        )
+        db.session.add(review)
+        db.session.commit()
+        flash('Recenzja dodana!', 'success')
+        return redirect(url_for('book_details', book_id=book.id))
+    
+    return render_template('add_review.html', form=form, book=book)
+
+@app.route('/book/<int:book_id>')
+def book_details(book_id):
+    book = Book.query.get_or_404(book_id)
+    reviews = Review.query.filter_by(book_id=book.id).order_by(Review.created_at.desc()).all()
+    
+    # avg rating
+    avg_rating = db.session.query(db.func.avg(Review.rating)).filter_by(book_id=book.id).scalar() or 0
+    
+    return render_template(
+        'book_details.html',
+        book=book,
+        reviews=reviews,
+        avg_rating=round(avg_rating, 1)
+    )
+
+#
 
 with app.app_context():
     # db.drop_all()

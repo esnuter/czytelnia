@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Dodaj recenzję - {{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Dodaj recenzję dla: {{ book.title }}</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.rating.label(class="form-label") }}
+                            {{ form.rating(class="form-select") }}
+                            {% if form.rating.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.rating.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.text.label(class="form-label") }}
+                            {{ form.text(class="form-control", rows=5) }}
+                            {% if form.text.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.text.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i> Opublikuj recenzję
+                            </button>
+                            <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Powrót
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

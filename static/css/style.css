@@ -1,0 +1,37 @@
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 60px;
+}
+
+.book-card {
+  transition: transform 0.2s;
+}
+.book-card:hover {
+  transform: scale(1.03);
+}
+.navbar-brand {
+  font-weight: 700;
+}
+.status-badge {
+  font-size: 0.8rem;
+}
+.rating-display, .rating {
+color: #ffc107;
+}
+.bi-star-fill {
+  color: inherit;
+}
+.bi-star {
+  color: #dee2e6;
+}
