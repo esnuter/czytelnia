@@ -12,6 +12,19 @@
     {% endif %}
 </div>
 
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form class="form-inline" method="get">
+            <label for="per_page" class="me-2">Książek na stronę:</label>
+            <select name="per_page" id="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="6" {% if per_page == 6 %}selected{% endif %}>6</option>
+                <option value="12" {% if per_page == 12 %}selected{% endif %}>12</option>
+                <option value="24" {% if per_page == 24 %}selected{% endif %}>24</option>
+            </select>
+        </form>
+    </div>
+</div>
+
 {% if books %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for book in books %}
@@ -37,13 +50,10 @@
                         </a>
                     </div>
                     {% if current_user.is_authenticated %}
-                    <form form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}">
+                    <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}">
                         <button type="submit" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-plus-circle"></i> Dodaj do biblioteki
                         </button>
-                        <a href="#" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-star"></i> Oceń
-                        </a>
                     </form>
                     {% else %}
                     <small class="text-muted">Zaloguj się, aby dodać do biblioteki</small>
@@ -54,6 +64,41 @@
     </div>
     {% endfor %}
 </div>
+
+{% if pagination.pages > 1 %}
+<nav aria-label="Nawigacja książek" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('book_list', page=pagination.prev_num, per_page=per_page) }}">
+                &laquo; Poprzednia
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('book_list', page=p, per_page=per_page) }}">{{ p }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('book_list', page=pagination.next_num, per_page=per_page) }}">
+                Następna &raquo;
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
 {% else %}
 <div class="alert alert-info">
     Brak książek w bazie danych. {% if current_user.is_moderator %}Dodaj pierwszą książkę!{% endif %}

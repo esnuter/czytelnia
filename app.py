@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash
+from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
@@ -90,7 +90,6 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
-@app.route('/')
 def home():
     if current_user.is_authenticated:
         return redirect(url_for('book_list'))
@@ -116,16 +115,41 @@ def add_book():
         return redirect(url_for('book_list'))  
     return render_template('add_book.html', form=form)  
 
-@app.route('/books')  
-def book_list():  
-    books = Book.query.all()  
-    return render_template('books.html', books=books)  
+@app.route('/books')
+def book_list():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 6, type=int)
+    books_pagination = Book.query.order_by(Book.title.asc()).paginate(page=page, per_page=per_page, error_out=False)
+    return render_template('books.html', 
+                         books=books_pagination.items, 
+                         pagination=books_pagination,
+                         per_page=per_page)
 
 @app.route('/my_library')
 @login_required
 def my_library():
-    user_books = current_user.library_books
-    return render_template('my_library.html', user_books=user_books)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int)
+    
+    library_pagination = UserLibrary.query.filter_by(user_id=current_user.id)\
+        .order_by(UserLibrary.status.desc(), UserLibrary.id.desc())\
+        .paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Oblicz statystyki
+    total_books = library_pagination.total
+    finished_books = UserLibrary.query.filter_by(
+        user_id=current_user.id,
+        status='finished'
+    ).count()
+    
+    return render_template(
+        'my_library.html',
+        user_books=library_pagination.items,
+        pagination=library_pagination,
+        per_page=per_page,
+        total_books=total_books,
+        finished_books=finished_books
+    )
 
 @app.route('/add_to_library/<int:book_id>', methods=['POST'])
 @login_required
@@ -203,16 +227,21 @@ def add_review(book_id):
 
 @app.route('/book/<int:book_id>')
 def book_details(book_id):
+    page = request.args.get('page', 1, type=int)
     book = Book.query.get_or_404(book_id)
-    reviews = Review.query.filter_by(book_id=book.id).order_by(Review.created_at.desc()).all()
     
-    # avg rating
-    avg_rating = db.session.query(db.func.avg(Review.rating)).filter_by(book_id=book.id).scalar() or 0
+    reviews_pagination = Review.query.filter_by(book_id=book.id)\
+        .order_by(Review.created_at.desc())\
+        .paginate(page=page, per_page=5, error_out=False)
+    
+    avg_rating = db.session.query(db.func.avg(Review.rating))\
+        .filter_by(book_id=book.id).scalar() or 0
     
     return render_template(
         'book_details.html',
         book=book,
-        reviews=reviews,
+        reviews=reviews_pagination.items,
+        pagination=reviews_pagination,
         avg_rating=round(avg_rating, 1)
     )
 

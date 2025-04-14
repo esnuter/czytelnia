@@ -35,3 +35,19 @@ color: #ffc107;
 .bi-star {
   color: #dee2e6;
 }
+
+.pagination .page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+.pagination .page-link {
+  color: #0d6efd;
+}
+
+.pagination {
+  margin-top: 2rem;
+}
+
+.page-item.disabled .page-link {
+  color: #6c757d;
+}

@@ -66,6 +66,35 @@
             {% else %}
                 <div class="alert alert-info">Brak recenzji. Bądź pierwszy!</div>
             {% endif %}
+            <nav aria-label="Nawigacja recenzji">
+                <ul class="pagination justify-content-center mt-4">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('book_details', book_id=book.id, page=pagination.prev_num) }}">
+                            &laquo; Poprzednia
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for p in pagination.iter_pages() %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('book_details', book_id=book.id, page=p) }}">
+                            {{ p }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" 
+                           href="{{ url_for('book_details', book_id=book.id, page=pagination.next_num) }}">
+                            Następna &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
         </div>
     </div>
 </div>
