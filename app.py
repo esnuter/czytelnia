@@ -6,7 +6,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, ValidationError
 from extensions import db, login_manager, bcrypt
-from models import User
+from models import *
+from wtforms import TextAreaField
 
 
 app = Flask(__name__)
@@ -37,6 +38,12 @@ class LoginForm(FlaskForm):
     username = StringField('Nazwa użytkownika', validators=[DataRequired()])
     password = PasswordField('Hasło', validators=[DataRequired()])
     submit = SubmitField('Zaloguj się')
+
+class BookForm(FlaskForm):  
+    title = StringField('Tytuł', validators=[DataRequired()])  
+    author = StringField('Autor', validators=[DataRequired()])  
+    description = TextAreaField('Opis')  
+    submit = SubmitField('Dodaj książkę')  
 
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
@@ -73,6 +80,30 @@ def logout():
 def home():
     return "Witaj w Czytelnia.pl!"  #
 
+@app.route('/add_book', methods=['GET', 'POST'])  
+@login_required  
+def add_book():  
+    if not current_user.is_moderator: 
+        flash('Brak uprawnień!', 'danger')  
+        return redirect(url_for('home'))  
+
+    form = BookForm()  
+    if form.validate_on_submit():  
+        book = Book(  
+            title=form.title.data,  
+            author=form.author.data,  
+            description=form.description.data  
+        )  
+        db.session.add(book)  
+        db.session.commit()  
+        flash('Książka dodana!', 'success')  
+        return redirect(url_for('book_list'))  
+    return render_template('add_book.html', form=form)  
+
+@app.route('/books')  
+def book_list():  
+    books = Book.query.all()  
+    return render_template('books.html', books=books)  
 
 with app.app_context():
     db.drop_all()
