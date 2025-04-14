@@ -1,14 +1,12 @@
 from flask import Flask, render_template, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_bcrypt import Bcrypt
+from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, ValidationError
 from extensions import db, login_manager, bcrypt
 from models import *
 from wtforms import TextAreaField
-
+from sqlalchemy import and_
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tajny-klucz-123'  # 
@@ -105,8 +103,56 @@ def book_list():
     books = Book.query.all()  
     return render_template('books.html', books=books)  
 
+@app.route('/my_library')
+@login_required
+def my_library():
+    user_books = current_user.library_books
+    return render_template('my_library.html', user_books=user_books)
+
+@app.route('/add_to_library/<int:book_id>', methods=['POST'])
+@login_required
+def add_to_library(book_id):
+    book = Book.query.get_or_404(book_id)
+    
+    existing_entry = UserLibrary.query.filter(
+        and_(
+            UserLibrary.user_id == current_user.id,
+            UserLibrary.book_id == book_id
+        )
+    ).first()
+    
+    if existing_entry:
+        flash('Ta książka jest już w Twojej bibliotece!', 'warning')
+    else:
+        new_entry = UserLibrary(
+            user_id=current_user.id,
+            book_id=book_id,
+            status='reading'  # Deafult status
+        )
+        db.session.add(new_entry)
+        db.session.commit()
+        flash('Książka dodana do biblioteki!', 'success')
+    
+    return redirect(url_for('book_list'))
+
+@app.route('/update_status/<int:entry_id>/<status>')
+@login_required
+def update_status(entry_id, status):
+    entry = UserLibrary.query.get_or_404(entry_id)
+    
+    if entry.user_id != current_user.id:
+        flash('Brak uprawnień!', 'danger')
+        return redirect(url_for('my_library'))
+    
+    entry.status = status
+    db.session.commit()
+    flash('Status zaktualizowany!', 'success')
+    return redirect(url_for('my_library'))
+
+
+
 with app.app_context():
-    db.drop_all()
+    # db.drop_all()
     db.create_all()
 
     if not User.query.filter_by(username='admin').first():

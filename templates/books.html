@@ -1,14 +1,32 @@
-{% extends "base.html" %}  
-{% block content %}  
-<h2>Lista książek</h2>  
-<ul>  
-    {% for book in books %}  
-    <li>  
-        <strong>{{ book.title }}</strong> - {{ book.author }}  
-    </li>  
-    {% endfor %}  
-</ul>  
-{% if current_user.is_moderator %}  
-<a href="{{ url_for('add_book') }}">Dodaj nową książkę</a>  
-{% endif %}  
-{% endblock %}  
+{% extends "base.html" %}
+{% block content %}
+<h2>Lista książek</h2>
+
+{% if current_user.is_authenticated %}
+<div class="alert alert-info">
+    Kliknij "Dodaj do biblioteki", aby zapisać książkę do swojej kolekcji.
+</div>
+{% endif %}
+
+<div class="row">
+    {% for book in books %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ book.title }}</h5>
+                <p class="card-text">{{ book.author }}</p>
+                {% if book.description %}
+                <p class="card-text text-muted">{{ book.description[:100] }}...</p>
+                {% endif %}
+                
+                {% if current_user.is_authenticated %}
+                <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Dodaj do biblioteki</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
