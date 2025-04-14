@@ -1,32 +1,50 @@
 {% extends "base.html" %}
+
+{% block title %}Lista książek{% endblock %}
+
 {% block content %}
-<h2>Lista książek</h2>
-
-{% if current_user.is_authenticated %}
-<div class="alert alert-info">
-    Kliknij "Dodaj do biblioteki", aby zapisać książkę do swojej kolekcji.
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-book"></i> Lista książek</h2>
+    {% if current_user.is_moderator %}
+    <a href="{{ url_for('add_book') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Dodaj książkę
+    </a>
+    {% endif %}
 </div>
-{% endif %}
 
-<div class="row">
+{% if books %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for book in books %}
-    <div class="col-md-4 mb-4">
-        <div class="card">
+    <div class="col">
+        <div class="card book-card h-100">
             <div class="card-body">
                 <h5 class="card-title">{{ book.title }}</h5>
-                <p class="card-text">{{ book.author }}</p>
+                <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
                 {% if book.description %}
-                <p class="card-text text-muted">{{ book.description[:100] }}...</p>
+                <p class="card-text mt-3">{{ book.description|truncate(150) }}</p>
                 {% endif %}
-                
+            </div>
+            <div class="card-footer bg-transparent">
                 {% if current_user.is_authenticated %}
                 <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}">
-                    <button type="submit" class="btn btn-primary btn-sm">Dodaj do biblioteki</button>
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Dodaj do biblioteki
+                    </button>
+                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-star"></i> Oceń
+                    </a>
                 </form>
+                {% else %}
+                <small class="text-muted">Zaloguj się, aby dodać do biblioteki</small>
                 {% endif %}
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+{% else %}
+<div class="alert alert-info">
+    Brak książek w bazie danych. {% if current_user.is_moderator %}Dodaj pierwszą książkę!{% endif %}
+</div>
+{% endif %}
 {% endblock %}

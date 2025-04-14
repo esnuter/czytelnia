@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center mt-5">
+    <h1>Witaj w Czytelnia.pl!</h1>
+    <p class="lead">Twoje ulubione narzędzie do śledzenia przeczytanych książek</p>
+    {% if not current_user.is_authenticated %}
+    <div class="mt-4">
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg mx-2">Zaloguj się</a>
+        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg mx-2">Zarejestruj</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

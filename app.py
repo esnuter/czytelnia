@@ -75,8 +75,11 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
+@app.route('/')
 def home():
-    return "Witaj w Czytelnia.pl!"  #
+    if current_user.is_authenticated:
+        return redirect(url_for('book_list'))
+    return render_template('home.html')
 
 @app.route('/add_book', methods=['GET', 'POST'])  
 @login_required  
