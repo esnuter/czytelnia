@@ -3,124 +3,174 @@
 {% block title %}Moja biblioteka{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2><i class="bi bi-collection"></i> Moja biblioteka</h2>
-  <div>
-      <span class="badge bg-primary rounded-pill me-2">
-          {{ total_books }} książek
-      </span>
-      <span class="badge bg-success rounded-pill">
-          {{ finished_books }} przeczytanych
-      </span>
-  </div>
-</div>
-
-<div class="row mb-3">
-    <div class="col-md-6">
-        <form class="form-inline" method="get">
-            <label for="per_page" class="me-2">Pozycji na stronę:</label>
-            <select name="per_page" id="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
-                <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-            </select>
-        </form>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-bookshelf text-primary"></i> Moja biblioteka
+        </h2>
+        <div>
+            <span class="badge bg-primary rounded-pill me-2 fs-6">
+                <i class="bi bi-book"></i> {{ total_books }} książek
+            </span>
+            <span class="badge bg-success rounded-pill fs-6">
+                <i class="bi bi-check-circle"></i> {{ finished_books }} przeczytanych
+            </span>
+        </div>
     </div>
-</div>
 
-{% if user_books %}
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Tytuł</th>
-                <th>Autor</th>
-                <th>Status</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in user_books %}
-            <tr>
-                <td>{{ entry.library_book.title }}</td>
-                <td>{{ entry.library_book.author }}</td>
-                <td>
-                    {% if entry.status == 'reading' %}
-                    <span class="badge bg-warning status-badge">
-                        <i class="bi bi-bookmark-check"></i> W trakcie
-                    </span>
-                    {% else %}
-                    <span class="badge bg-success status-badge">
-                        <i class="bi bi-check-circle"></i> Przeczytane
-                    </span>
-                    {% endif %}
-                </td>
-                <td>
-                  <div class="btn-group btn-group-sm">
-                    <form method="POST" action="{{ url_for('update_status', entry_id=entry.id, status='reading') }}" class="d-inline">
-                        <button type="submit" class="btn btn-outline-warning" title="Oznacz jako czytane">
-                            <i class="bi bi-arrow-repeat"></i>
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ url_for('update_status', entry_id=entry.id, status='finished') }}" class="d-inline">
-                        <button type="submit" class="btn btn-outline-success" title="Oznacz jako przeczytane">
-                            <i class="bi bi-check-lg"></i>
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ url_for('remove_from_library', entry_id=entry.id) }}" 
-                          class="d-inline" onsubmit="return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');">
-                        <button type="submit" class="btn btn-outline-danger" title="Usuń z biblioteki">
-                            <i class="bi bi-trash"></i>
-                        </button>
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body py-2">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <form class="d-flex align-items-center" method="get">
+                        <label for="per_page" class="me-2 mb-0 text-nowrap">Pozycji na stronę:</label>
+                        <select name="per_page" id="per_page" class="form-select form-select-sm w-auto" 
+                                onchange="this.form.submit()">
+                            <option value="5" {% if per_page == 5 %}selected{% endif %}>5</option>
+                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        </select>
                     </form>
                 </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+                <div class="col-md-6 text-md-end mt-2 mt-md-0">
+                    <small class="text-muted">
+                        Strona {{ pagination.page }} z {{ pagination.pages }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
 
-{% if pagination.pages > 1 %}
-<nav aria-label="Nawigacja biblioteki" class="mt-4">
-    <ul class="pagination justify-content-center">
-        {% if pagination.has_prev %}
-        <li class="page-item">
-            <a class="page-link" 
-               href="{{ url_for('my_library', page=pagination.prev_num, per_page=per_page) }}">
-                &laquo; Poprzednia
-            </a>
-        </li>
-        {% endif %}
-        
-        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if p %}
-                <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" 
-                       href="{{ url_for('my_library', page=p, per_page=per_page) }}">{{ p }}</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">...</span>
-                </li>
+    <!-- Books table -->
+    {% if user_books %}
+    <div class="card shadow-sm mb-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="w-40">Tytuł</th>
+                        <th class="w-25">Autor</th>
+                        <th class="w-20">Status</th>
+                        <th class="w-15 text-end">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in user_books %}
+                    <tr class="book-row">
+                        <td>
+                            <a href="{{ url_for('book_details', book_id=entry.library_book.id) }}" 
+                               class="text-decoration-none text-dark fw-bold">
+                                {{ entry.library_book.title }}
+                            </a>
+                        </td>
+                        <td>{{ entry.library_book.author }}</td>
+                        <td>
+                            {% if entry.status == 'reading' %}
+                            <span class="badge bg-warning text-dark status-badge">
+                                <i class="bi bi-bookmark-check-fill"></i> W trakcie
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success text-white status-badge">
+                                <i class="bi bi-check-circle-fill"></i> Przeczytane
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <form method="POST" 
+                                      action="{{ url_for('update_status', entry_id=entry.id, status='reading') }}" 
+                                      class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning" 
+                                            title="Oznacz jako czytane" {% if entry.status == 'reading' %}disabled{% endif %}>
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" 
+                                      action="{{ url_for('update_status', entry_id=entry.id, status='finished') }}" 
+                                      class="d-inline">
+                                    <button type="submit" class="btn btn-outline-success" 
+                                            title="Oznacz jako przeczytane" {% if entry.status == 'finished' %}disabled{% endif %}>
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" 
+                                      action="{{ url_for('remove_from_library', entry_id=entry.id) }}" 
+                                      class="d-inline" 
+                                      onsubmit="return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');">
+                                    <button type="submit" class="btn btn-outline-danger" title="Usuń z biblioteki">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Nawigacja biblioteki" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="{{ url_for('my_library', page=pagination.prev_num, per_page=per_page) }}">
+                    <i class="bi bi-chevron-left"></i> Poprzednia
+                </a>
+            </li>
             {% endif %}
-        {% endfor %}
-        
-        {% if pagination.has_next %}
-        <li class="page-item">
-            <a class="page-link" 
-               href="{{ url_for('my_library', page=pagination.next_num, per_page=per_page) }}">
-                Następna &raquo;
-            </a>
-        </li>
-        {% endif %}
-    </ul>
-</nav>
-{% endif %}
+            
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('my_library', page=p, per_page=per_page) }}">{{ p }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="{{ url_for('my_library', page=pagination.next_num, per_page=per_page) }}">
+                    Następna <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 
-{% else %}
-<div class="alert alert-info">
-    Twoja biblioteka jest pusta. Przejdź do <a href="{{ url_for('book_list') }}">listy książek</a>, aby dodać pozycje.
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+            <h4 class="mt-3">Twoja biblioteka jest pusta</h4>
+            <p class="text-muted">Przejdź do listy książek, aby dodać pozycje</p>
+            <a href="{{ url_for('book_list') }}" class="btn btn-primary mt-2">
+                <i class="bi bi-book-plus"></i> Przeglądaj książki
+            </a>
+        </div>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+
+<style>
+    .book-row:hover {
+        background-color: rgba(78, 115, 223, 0.05);
+    }
+    .status-badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+    .table th {
+        font-weight: 600;
+    }
+</style>
 {% endblock %}

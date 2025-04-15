@@ -3,62 +3,112 @@
 {% block title %}Lista książek{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-book"></i> Lista książek</h2>
-    {% if current_user.is_moderator %}
-    <a href="{{ url_for('add_book') }}" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Dodaj książkę
-    </a>
-    {% endif %}
-</div>
-
-<div class="row mb-3">
-    <div class="col-md-6">
-        <form class="form-inline" method="get">
-            <label for="per_page" class="me-2">Książek na stronę:</label>
-            <select name="per_page" id="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="6" {% if per_page == 6 %}selected{% endif %}>6</option>
-                <option value="12" {% if per_page == 12 %}selected{% endif %}>12</option>
-                <option value="24" {% if per_page == 24 %}selected{% endif %}>24</option>
-            </select>
-        </form>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-book"></i> Książki</h1>
+        {% if current_user.is_moderator %}
+        <a href="{{ url_for('add_book') }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Dodaj książkę
+        </a>
+        {% endif %}
     </div>
-</div>
+
+    <div class="card mb-4">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <!-- books searching -->
+                <div class="col-md-5">
+                    <form method="GET" action="{{ url_for('book_list') }}" class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input 
+                            type="text" 
+                            name="search" 
+                            class="form-control" 
+                            placeholder="Szukaj książek..." 
+                            value="{{ search_query }}"
+                        >
+                        <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                        <input type="hidden" name="per_page" value="{{ per_page }}">
+                        <button type="submit" class="btn btn-primary">Szukaj</button>
+                        {% if search_query %}
+                        <a href="{{ url_for('book_list') }}" class="btn btn-outline-secondary">Wyczyść</a>
+                        {% endif %}
+                    </form>
+                </div>
+                
+                <!-- sorting -->
+                <div class="col-md-4">
+                    <form method="GET" action="{{ url_for('book_list') }}" class="input-group">
+                        <span class="input-group-text bg-white">Sortuj:</span>
+                        <select 
+                            name="sort_by" 
+                            class="form-select"
+                            onchange="this.form.submit()"
+                        >
+                            <option value="title_asc" {% if sort_by=='title_asc' %}selected{% endif %}>Tytuł A-Z</option>
+                            <option value="title_desc" {% if sort_by=='title_desc' %}selected{% endif %}>Tytuł Z-A</option>
+                            <option value="author_asc" {% if sort_by=='author_asc' %}selected{% endif %}>Autor A-Z</option>
+                            <option value="author_desc" {% if sort_by=='author_desc' %}selected{% endif %}>Autor Z-A</option>
+                            <option value="newest" {% if sort_by=='newest' %}selected{% endif %}>Najnowsze</option>
+                            <option value="oldest" {% if sort_by=='oldest' %}selected{% endif %}>Najstarsze</option>
+                        </select>
+                        <input type="hidden" name="search" value="{{ search_query }}">
+                        <input type="hidden" name="per_page" value="{{ per_page }}">
+                    </form>
+                </div>
+                
+                <!--  -->
+                <div class="col-md-3 text-end">
+                    <form method="GET" action="{{ url_for('book_list') }}" class="d-inline">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">Pokaż:</span>
+                            <select 
+                                name="per_page" 
+                                class="form-select"
+                                onchange="this.form.submit()"
+                                style="width: 70px;"
+                            >
+                                <option value="6" {% if per_page == 6 %}selected{% endif %}>6</option>
+                                <option value="12" {% if per_page == 12 %}selected{% endif %}>12</option>
+                                <option value="24" {% if per_page == 24 %}selected{% endif %}>24</option>
+                            </select>
+                            <input type="hidden" name="search" value="{{ search_query }}">
+                            <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
 {% if books %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for book in books %}
     <div class="col">
-        <div class="card book-card h-100">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <a href="{{ url_for('book_details', book_id=book.id) }}" class="text-decoration-none">
-                        {{ book.title }}
-                    </a>
-                </h5>
-                <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
-                {% if book.description %}
-                <p class="card-text mt-3">{{ book.description|truncate(150) }}</p>
-                {% endif %}
+        <div class="card h-100 shadow-sm">
+            {% if book.cover_url %}
+            <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 300px; object-fit: cover;">
+            {% else %}
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 300px;">
+                <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
             </div>
-            <div class="card-footer bg-transparent">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <a href="{{ url_for('book_details', book_id=book.id) }}" 
-                           class="btn btn-sm btn-outline-secondary me-2">
-                            <i class="bi bi-info-circle"></i> Szczegóły
-                        </a>
-                    </div>
-                    {% if current_user.is_authenticated %}
-                    <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}">
-                        <button type="submit" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-plus-circle"></i> Dodaj do biblioteki
-                        </button>
-                    </form>
-                    {% else %}
-                    <small class="text-muted">Zaloguj się, aby dodać do biblioteki</small>
-                    {% endif %}
-                </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ book.title }}</h5>
+                <p class="card-text text-muted"><i class="bi bi-person"></i> {{ book.author }}</p>
+                <p class="card-text text-truncate">{{ book.description }}</p>
+            </div>
+            <div class="card-footer bg-white">
+                <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-info-circle"></i> Szczegóły
+                </a>
+                {% if current_user.is_authenticated %}
+                <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-plus-circle"></i> Do biblioteki
+                    </button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>

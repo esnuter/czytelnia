@@ -7,7 +7,7 @@ from wtforms.validators import DataRequired, Length, Email, ValidationError, Reg
 from extensions import db, login_manager, bcrypt
 from models import *
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 import os
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -153,11 +153,40 @@ def add_book():
 def book_list():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 6, type=int)
-    books_pagination = Book.query.order_by(Book.title.asc()).paginate(page=page, per_page=per_page, error_out=False)
+    search_query = request.args.get('search', '')
+    sort_by = request.args.get('sort_by', 'title_asc')
+
+    query = Book.query
+    
+    if search_query:
+        query = query.filter(
+            or_(
+                Book.title.ilike(f'%{search_query}%'),
+                Book.author.ilike(f'%{search_query}%')
+            )
+        )
+    
+    if sort_by == 'title_asc':
+        query = query.order_by(Book.title.asc())
+    elif sort_by == 'title_desc':
+        query = query.order_by(Book.title.desc())
+    elif sort_by == 'author_asc':
+        query = query.order_by(Book.author.asc())
+    elif sort_by == 'author_desc':
+        query = query.order_by(Book.author.desc())
+    elif sort_by == 'newest':
+        query = query.order_by(Book.date_added.desc())
+    elif sort_by == 'oldest':
+        query = query.order_by(Book.date_added.asc())
+    
+    books_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
     return render_template('books.html', 
                          books=books_pagination.items, 
                          pagination=books_pagination,
-                         per_page=per_page)
+                         per_page=per_page,
+                         search_query=search_query,
+                         sort_by=sort_by)
 
 @app.route('/my_library')
 @login_required
@@ -272,9 +301,15 @@ def book_details(book_id):
     page = request.args.get('page', 1, type=int)
     book = Book.query.get_or_404(book_id)
     
-    reviews_pagination = Review.query.filter_by(book_id=book.id)\
-        .order_by(Review.created_at.desc())\
-        .paginate(page=page, per_page=5, error_out=False)
+    reviews_query = Review.query.filter_by(book_id=book.id).order_by(Review.created_at.desc())
+    reviews_pagination = reviews_query.paginate(page=page, per_page=5, error_out=False)
+    
+    current_user_review = None
+    if current_user.is_authenticated:
+        current_user_review = Review.query.filter_by(
+            book_id=book.id,
+            user_id=current_user.id
+        ).first()
     
     avg_rating = db.session.query(db.func.avg(Review.rating))\
         .filter_by(book_id=book.id).scalar() or 0
@@ -283,8 +318,9 @@ def book_details(book_id):
         'book_details.html',
         book=book,
         reviews=reviews_pagination.items,
-        pagination=reviews_pagination,
-        avg_rating=round(avg_rating, 1)
+        reviews_pagination=reviews_pagination,
+        avg_rating=round(avg_rating, 1),
+        current_user_review=current_user_review
     )
 
 @app.route('/uploads/covers/<filename>')
