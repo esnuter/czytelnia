@@ -26,6 +26,9 @@ class Book(db.Model):
     title = db.Column(db.String(100), nullable=False)
     author = db.Column(db.String(50), nullable=False)
     description = db.Column(db.Text)
+    cover_url = db.Column(db.String(255)) 
+    isbn = db.Column(db.String(20)) 
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
     library_entries = db.relationship(
         'UserLibrary',
@@ -40,11 +43,15 @@ class Review(db.Model):
     __tablename__ = 'reviews'
     
     id = db.Column(db.Integer, primary_key=True)
-    rating = db.Column(db.Integer, nullable=False)  # 1-5
-    text = db.Column(db.Text)
+    rating = db.Column(db.Integer, nullable=False)
+    text = db.Column(db.Text, nullable=True) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
+    
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'book_id', name='_user_book_uc'),
+    )
 
 class UserLibrary(db.Model):
     id = db.Column(db.Integer, primary_key=True)

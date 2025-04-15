@@ -1,12 +1,17 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, Length, Email, ValidationError
+from wtforms.validators import DataRequired, Length, Email, ValidationError, Regexp
 from extensions import db, login_manager, bcrypt
 from models import *
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from sqlalchemy import and_
+import os
+from werkzeug.utils import secure_filename
+from PIL import Image
+import uuid
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tajny-klucz-123'  # 
@@ -19,6 +24,15 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# files
+app.config['UPLOAD_FOLDER'] = 'static/uploads/covers'
+app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png'}
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB limit
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 # Forms
 class RegisterForm(FlaskForm):
@@ -36,11 +50,15 @@ class LoginForm(FlaskForm):
     password = PasswordField('Hasło', validators=[DataRequired()])
     submit = SubmitField('Zaloguj się')
 
-class BookForm(FlaskForm):  
-    title = StringField('Tytuł', validators=[DataRequired()])  
-    author = StringField('Autor', validators=[DataRequired()])  
-    description = TextAreaField('Opis')  
-    submit = SubmitField('Dodaj książkę')  
+class BookForm(FlaskForm):
+    title = StringField('Tytuł', validators=[DataRequired()])
+    author = StringField('Autor', validators=[DataRequired()])
+    description = TextAreaField('Opis')
+    isbn = StringField('ISBN')
+    cover = FileField('Okładka książki', validators=[
+        FileAllowed(['jpg', 'jpeg', 'png'], 'Tylko obrazy JPG/PNG!')
+    ])
+    submit = SubmitField('Dodaj książkę')
 
 class ReviewForm(FlaskForm):
     rating = SelectField(
@@ -95,25 +113,41 @@ def home():
         return redirect(url_for('book_list'))
     return render_template('home.html')
 
-@app.route('/add_book', methods=['GET', 'POST'])  
-@login_required  
-def add_book():  
-    if not current_user.is_moderator: 
-        flash('Brak uprawnień!', 'danger')  
-        return redirect(url_for('home'))  
+@app.route('/add_book', methods=['GET', 'POST'])
+@login_required
+def add_book():
+    if not current_user.is_moderator:
+        flash('Brak uprawnień!', 'danger')
+        return redirect(url_for('home'))
 
-    form = BookForm()  
-    if form.validate_on_submit():  
-        book = Book(  
-            title=form.title.data,  
-            author=form.author.data,  
-            description=form.description.data  
-        )  
-        db.session.add(book)  
-        db.session.commit()  
-        flash('Książka dodana!', 'success')  
-        return redirect(url_for('book_list'))  
-    return render_template('add_book.html', form=form)  
+    form = BookForm()
+    if form.validate_on_submit():
+        cover_url = ''
+        if form.cover.data:
+            file = form.cover.data
+            if file and allowed_file(file.filename):
+                filename = secure_filename(f"{uuid.uuid4().hex}.{file.filename.rsplit('.', 1)[1].lower()}")
+                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                img = Image.open(file_path)
+                img.thumbnail((300, 300))
+                img.save(file_path)
+                cover_url = f"/uploads/covers/{filename}"
+
+        book = Book(
+            title=form.title.data,
+            author=form.author.data,
+            description=form.description.data,
+            isbn=form.isbn.data,
+            cover_url=cover_url
+        )
+        db.session.add(book)
+        db.session.commit()
+        flash('Książka dodana!', 'success')
+        return redirect(url_for('book_list'))
+    
+    return render_template('add_book.html', form=form) 
 
 @app.route('/books')
 def book_list():
@@ -135,7 +169,6 @@ def my_library():
         .order_by(UserLibrary.status.desc(), UserLibrary.id.desc())\
         .paginate(page=page, per_page=per_page, error_out=False)
     
-    # Oblicz statystyki
     total_books = library_pagination.total
     finished_books = UserLibrary.query.filter_by(
         user_id=current_user.id,
@@ -177,7 +210,7 @@ def add_to_library(book_id):
     
     return redirect(url_for('book_list'))
 
-@app.route('/update_status/<int:entry_id>/<status>')
+@app.route('/update_status/<int:entry_id>/<status>', methods=['POST'])
 @login_required
 def update_status(entry_id, status):
     entry = UserLibrary.query.get_or_404(entry_id)
@@ -188,7 +221,7 @@ def update_status(entry_id, status):
     
     entry.status = status
     db.session.commit()
-    flash('Status zaktualizowany!', 'success')
+    flash(f'Status książki "{entry.library_book.title}" zaktualizowany na "{status}"!', 'success')
     return redirect(url_for('my_library'))
 
 @app.route('/remove_from_library/<int:entry_id>', methods=['POST'])
@@ -211,10 +244,19 @@ def add_review(book_id):
     book = Book.query.get_or_404(book_id)
     form = ReviewForm()
     
+    existing_review = Review.query.filter_by(
+        book_id=book.id,
+        user_id=current_user.id
+    ).first()
+    
+    if existing_review:
+        flash('Możesz dodać tylko jedną recenzję per książka!', 'warning')
+        return redirect(url_for('book_details', book_id=book.id))
+    
     if form.validate_on_submit():
         review = Review(
             rating=form.rating.data,
-            text=form.text.data,
+            text=form.text.data or None, 
             user_id=current_user.id,
             book_id=book.id
         )
@@ -245,10 +287,13 @@ def book_details(book_id):
         avg_rating=round(avg_rating, 1)
     )
 
+@app.route('/uploads/covers/<filename>')
+def uploaded_cover(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 #
 
 with app.app_context():
-    # db.drop_all()
     db.create_all()
 
     if not User.query.filter_by(username='admin').first():

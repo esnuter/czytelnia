@@ -15,7 +15,6 @@
   </div>
 </div>
 
-<!-- Selektor ilości pozycji na stronę -->
 <div class="row mb-3">
     <div class="col-md-6">
         <form class="form-inline" method="get">
@@ -57,22 +56,24 @@
                     {% endif %}
                 </td>
                 <td>
-                    <div class="btn-group btn-group-sm">
-                        <a href="{{ url_for('update_status', entry_id=entry.id, status='reading') }}" 
-                           class="btn btn-outline-warning" title="Oznacz jako czytane">
+                  <div class="btn-group btn-group-sm">
+                    <form method="POST" action="{{ url_for('update_status', entry_id=entry.id, status='reading') }}" class="d-inline">
+                        <button type="submit" class="btn btn-outline-warning" title="Oznacz jako czytane">
                             <i class="bi bi-arrow-repeat"></i>
-                        </a>
-                        <a href="{{ url_for('update_status', entry_id=entry.id, status='finished') }}" 
-                           class="btn btn-outline-success" title="Oznacz jako przeczytane">
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('update_status', entry_id=entry.id, status='finished') }}" class="d-inline">
+                        <button type="submit" class="btn btn-outline-success" title="Oznacz jako przeczytane">
                             <i class="bi bi-check-lg"></i>
-                        </a>
-                        <form method="POST" action="{{ url_for('remove_from_library', entry_id=entry.id) }}" 
-                              class="d-inline" onsubmit="return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');">
-                            <button type="submit" class="btn btn-outline-danger" title="Usuń z biblioteki">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </div>
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('remove_from_library', entry_id=entry.id) }}" 
+                          class="d-inline" onsubmit="return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');">
+                        <button type="submit" class="btn btn-outline-danger" title="Usuń z biblioteki">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
                 </td>
             </tr>
             {% endfor %}
@@ -80,7 +81,6 @@
     </table>
 </div>
 
-<!-- Paginacja -->
 {% if pagination.pages > 1 %}
 <nav aria-label="Nawigacja biblioteki" class="mt-4">
     <ul class="pagination justify-content-center">

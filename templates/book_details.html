@@ -3,14 +3,24 @@
 {% block title %}{{ book.title }} - Szczegóły{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <!-- left col-->
-        <div class="col-md-4">
-            <div class="card mb-4">
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="row g-0">
+            <div class="col-md-3 text-center p-3">
+                {% if book.cover_url %}
+                    <img src="{{ book.cover_url }}" class="img-fluid rounded-start" alt="Okładka {{ book.title }}" style="max-height: 300px;">
+                {% else %}
+                    <div class="bg-light d-flex align-items-center justify-content-center" style="height: 300px; width: 200px;">
+                        <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
+                    </div>
+                {% endif %}
+            </div>
+            
+           
+            <div class="col-md-9">
                 <div class="card-body">
-                    <h3 class="card-title">{{ book.title }}</h3>
-                    <h5 class="card-subtitle mb-3 text-muted">{{ book.author }}</h5>
+                    <h2 class="card-title">{{ book.title }}</h2>
+                    <h4 class="card-subtitle mb-3 text-muted">{{ book.author }}</h4>
                     
                     <div class="d-flex align-items-center mb-3">
                         <span class="me-2">Średnia ocena:</span>
@@ -18,84 +28,110 @@
                             {% for i in range(1,6) %}
                                 <i class="bi bi-star{% if i <= avg_rating %}-fill{% endif %} text-warning"></i>
                             {% endfor %}
-                            <span class="ms-2">{{ avg_rating }}/5 ({{ reviews|length }} ocen)</span>
+                            <span class="ms-2">{{ "%.1f"|format(avg_rating) }}/5 ({{ reviews|length }} ocen)</span>
                         </div>
                     </div>
                     
-                    {% if book.description %}
                     <div class="mb-3">
                         <h5>Opis:</h5>
-                        <p>{{ book.description }}</p>
+                        <p class="card-text">{{ book.description or "Brak opisu" }}</p>
                     </div>
-                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p><strong>Dodano:</strong> {{ book.date_added.strftime('%d.%m.%Y') if book.date_added else 'Nieznana' }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>ISBN:</strong> {{ book.isbn or 'Nieznany' }}</p>
+                        </div>
+                    </div>
                     
                     {% if current_user.is_authenticated %}
                     <div class="mt-3">
-                        <a href="{{ url_for('add_review', book_id=book.id) }}" class="btn btn-primary">
+                        <a href="{{ url_for('add_review', book_id=book.id) }}" class="btn btn-primary me-2">
                             <i class="bi bi-pencil"></i> Dodaj recenzję
                         </a>
+                        <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-outline-primary">
+                                <i class="bi bi-plus-circle"></i> Dodaj do biblioteki
+                            </button>
+                        </form>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-        
-        <!-- right col -->
-        <div class="col-md-8">
-            <h4 class="mb-4">Recenzje</h4>
-            
-            {% if reviews %}
-                {% for review in reviews %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h5 class="card-title">
-                                {{ review.review_user.username }}
-                                <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y') }}</small>
-                            </h5>
-                            <div class="rating">
-                                {% for i in range(1,6) %}
-                                    <i class="bi bi-star{% if i <= review.rating %}-fill{% endif %} text-warning"></i>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <p class="card-text mt-2">{{ review.text }}</p>
+    </div>
+
+    <h3 class="mb-4"><i class="bi bi-chat-square-text"></i> Recenzje</h3>
+    
+    {% if reviews %}
+        {% for review in reviews %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="card-title mb-0">
+                        {{ review.review_user.username }}
+                        <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                    </h5>
+                    <div class="rating">
+                        {% for i in range(1,6) %}
+                            <i class="bi bi-star{% if i <= review.rating %}-fill{% endif %} text-warning"></i>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="alert alert-info">Brak recenzji. Bądź pierwszy!</div>
-            {% endif %}
-            <nav aria-label="Nawigacja recenzji">
-                <ul class="pagination justify-content-center mt-4">
-                    {% if pagination.has_prev %}
-                    <li class="page-item">
-                        <a class="page-link" 
-                           href="{{ url_for('book_details', book_id=book.id, page=pagination.prev_num) }}">
-                            &laquo; Poprzednia
-                        </a>
-                    </li>
-                    {% endif %}
-                    
-                    {% for p in pagination.iter_pages() %}
-                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                        <a class="page-link" href="{{ url_for('book_details', book_id=book.id, page=p) }}">
-                            {{ p }}
-                        </a>
-                    </li>
-                    {% endfor %}
-                    
-                    {% if pagination.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" 
-                           href="{{ url_for('book_details', book_id=book.id, page=pagination.next_num) }}">
-                            Następna &raquo;
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
+                
+                {% if review.text %}
+                <p class="card-text mt-2">{{ review.text }}</p>
+                {% else %}
+                <p class="card-text text-muted mt-2">Użytkownik nie dodał treści recenzji</p>
+                {% endif %}
+                
+                {% if review.review_user.id == current_user.id %}
+                <div class="mt-2">
+                    <a href="#" class="btn btn-sm btn-outline-warning">Edytuj</a>
+                    <a href="#" class="btn btn-sm btn-outline-danger">Usuń</a>
+                </div>
+                {% endif %}
+            </div>
         </div>
-    </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">Brak recenzji. Bądź pierwszy!</div>
+    {% endif %}
+    
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Nawigacja recenzji">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('book_details', book_id=book.id, page=pagination.prev_num) }}">
+                    &laquo; Poprzednia
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('book_details', book_id=book.id, page=p) }}">{{ p }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('book_details', book_id=book.id, page=pagination.next_num) }}">
+                    Następna &raquo;
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

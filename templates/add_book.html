@@ -1,20 +1,71 @@
-{% extends "base.html" %}  
-{% block content %}  
-<h2>Dodaj książkę</h2>  
-<form method="POST">  
-    {{ form.hidden_tag() }}  
-    <div>  
-        {{ form.title.label }}<br>  
-        {{ form.title(size=50) }}  
-    </div>  
-    <div>  
-        {{ form.author.label }}<br>  
-        {{ form.author(size=50) }}  
-    </div>  
-    <div>  
-        {{ form.description.label }}<br>  
-        {{ form.description(rows=5) }}  
-    </div>  
-    {{ form.submit() }}  
-</form>  
-{% endblock %}  
+{% extends "base.html" %}
+
+{% block title %}Dodaj książkę{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-plus-circle"></i> Dodaj nową książkę</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.title.label(class="form-label") }}
+                            {{ form.title(class="form-control") }}
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.title.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.author.label(class="form-label") }}
+                            {{ form.author(class="form-control") }}
+                            {% if form.author.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.author.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows=5) }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.isbn.label(class="form-label") }}
+                            {{ form.isbn(class="form-control", placeholder="np. 978-83-8116-122-1") }}
+                            <small class="text-muted">Pole opcjonalne</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.cover.label(class="form-label") }}
+                            {{ form.cover(class="form-control") }}
+                            <small class="text-muted">Dozwolone formaty: JPG, PNG (max 2MB)</small>
+                            {% if form.cover.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.cover.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('book_list') }}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i> Anuluj
+                            </a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
