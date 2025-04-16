@@ -1,14 +1,169 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="text-center mt-5">
-    <h1>Witaj w Czytelnia.pl!</h1>
-    <p class="lead">Twoje ulubione narzędzie do śledzenia przeczytanych książek</p>
-    {% if not current_user.is_authenticated %}
-    <div class="mt-4">
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg mx-2">Zaloguj się</a>
-        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg mx-2">Zarejestruj</a>
+<div class="container">
+    <!-- Hero Section -->
+    <div class="p-5 mb-4 bg-light rounded-3 hero-section">
+        <div class="container-fluid py-5 text-center">
+            <h1 class="display-5 fw-bold">Witaj w Czytelnia.pl</h1>
+            <p class="col-md-8 fs-4 mx-auto">Odkrywaj nowe książki, śledź swoje postępy i dziel się recenzjami</p>
+            <a href="{{ url_for('book_list') }}" class="btn btn-primary btn-lg mt-3">
+                <i class="bi bi-book"></i> Przeglądaj książki
+            </a>
+        </div>
     </div>
-    {% endif %}
+
+    <!-- newest books -->
+    <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-clock-history text-primary"></i> Najnowsze dodane</h2>
+            <a href="{{ url_for('book_list') }}?sort_by=newest" class="btn btn-outline-primary">
+                Zobacz wszystkie <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for book in newest_books %}
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    {% if book.cover_url %}
+                    <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ book.title }}</h5>
+                        <p class="card-text text-muted">{{ book.author }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Dodano: {{ book.date_added.strftime('%d.%m.%Y') }}</small>
+                            <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-sm btn-outline-primary">
+                                Szczegóły
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- top rated -->
+    <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-star-fill text-warning"></i> Najlepiej oceniane</h2>
+            <a href="{{ url_for('book_list') }}?sort_by=best_rated" class="btn btn-outline-primary">
+                Zobacz wszystkie <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for book in top_rated_books %}
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    {% if book.cover_url %}
+                    <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ book.title }}</h5>
+                        <p class="card-text text-muted">{{ book.author }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="rating-badge">
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-star-fill"></i> {{ "%.1f"|format(book.average_rating or 0) }}
+                                </span>
+                                <small class="text-muted ms-2">{{ book.review_count }} recenzje</small>
+                            </div>
+                            <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-sm btn-outline-primary">
+                                Szczegóły
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- recommended -->
+    <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-lightbulb-fill text-info"></i> Polecane dla Ciebie</h2>
+            <a href="{{ url_for('book_list') }}" class="btn btn-outline-primary">
+                Zobacz wszystkie <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        
+        {% if show_recommendations %}
+            {% if recommended_books %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for book in recommended_books %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        {% if book.cover_url %}
+                        <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 200px; object-fit: cover;">
+                        {% else %}
+                        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                            <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ book.title }}</h5>
+                            <p class="card-text text-muted">{{ book.author }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                {% if has_library_books %}
+                                <div class="text-muted small">
+                                    Polecane, bo czytasz {{ book.author }}
+                                </div>
+                                {% else %}
+                                <div class="rating-badge">
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-star-fill"></i> {{ "%.1f"|format(book.average_rating or 0) if book.average_rating else 'Brak ocen' }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                                <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-sm btn-outline-primary">
+                                    Szczegóły
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-info-circle text-muted" style="font-size: 2rem;"></i>
+                    <h4 class="mt-3">Dodaj książki do biblioteki</h4>
+                    <p class="text-muted">Aby otrzymać spersonalizowane rekomendacje</p>
+                    <a href="{{ url_for('book_list') }}" class="btn btn-primary mt-2">
+                        <i class="bi bi-book-plus"></i> Przeglądaj książki
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-box-arrow-in-right text-muted" style="font-size: 2rem;"></i>
+                <h4 class="mt-3">Zaloguj się aby otrzymać rekomendacje</h4>
+                <p class="text-muted">Na podstawie Twojej biblioteki i ocen</p>
+                <a href="{{ url_for('login') }}" class="btn btn-primary mt-2">
+                    <i class="bi bi-box-arrow-in-right"></i> Zaloguj się
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </section>
 </div>
+
+<style>
+
+</style>
 {% endblock %}

@@ -109,9 +109,56 @@ def logout():
 
 @app.route('/')
 def home():
+    # newest books
+    newest_books = Book.query.order_by(Book.date_added.desc()).limit(6).all()
+    
+    # top rated
+    top_rated = db.session.query(
+        Book,
+        db.func.avg(Review.rating).label('average_rating'),
+        db.func.count(Review.id).label('review_count')
+    ).outerjoin(Review).group_by(Book.id).order_by(
+        db.desc('average_rating')
+    ).limit(6).all()
+    
+    top_rated_books = []
+    for book, avg_rating, review_count in top_rated:
+        book.average_rating = avg_rating or 0
+        book.review_count = review_count
+        top_rated_books.append(book)
+    
+    # recommended books
+    recommended_books = []
+    show_recommendations = False
+    
     if current_user.is_authenticated:
-        return redirect(url_for('book_list'))
-    return render_template('home.html')
+        if current_user.library_books:
+            user_authors = {entry.library_book.author for entry in current_user.library_books}
+            user_book_ids = {entry.book_id for entry in current_user.library_books}
+            
+            recommended_books = Book.query.filter(
+                Book.author.in_(user_authors),
+                ~Book.id.in_(user_book_ids)
+            ).limit(5).all()
+            show_recommendations = True
+        else:
+            recommended_books = db.session.query(
+                Book,
+                db.func.count(UserLibrary.id).label('user_count')
+            ).join(UserLibrary).group_by(Book.id).order_by(
+                db.desc('user_count')
+            ).limit(5).all()
+            show_recommendations = True
+    
+    return render_template(
+        'home.html',
+        newest_books=newest_books,
+        top_rated_books=top_rated_books,
+        recommended_books=recommended_books,
+        show_recommendations=show_recommendations,
+        has_library_books=current_user.is_authenticated and bool(current_user.library_books)
+    )
+
 
 @app.route('/add_book', methods=['GET', 'POST'])
 @login_required

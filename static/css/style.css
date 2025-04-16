@@ -99,3 +99,15 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #f8f9fa;
   border-color: #dee2e6;
 }
+
+.hero-section {
+  background: linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), 
+              url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+  background-size: cover;
+  background-position: center;
+}
+
+.rating-badge .badge {
+  font-size: 0.9em;
+  padding: 0.35em 0.65em;
+}
