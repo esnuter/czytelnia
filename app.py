@@ -464,37 +464,63 @@ def edit_book(book_id):
     if not current_user.is_moderator:
         flash('Brak uprawnień!', 'danger')
         return redirect(url_for('home'))
-    
+
     book = Book.query.get_or_404(book_id)
     form = BookForm(obj=book)
     form.genres.choices = [(g.id, g.name) for g in Genre.query.order_by('name')]
-    
+
     if request.method == 'GET':
         form.genres.data = [g.id for g in book.genres]
         form.tags.data = ', '.join([t.name for t in book.tags])
-    
+
     if form.validate_on_submit():
-        form.populate_obj(book)
-        
-        book.genres = []
-        for genre_id in form.genres.data:
-            genre = Genre.query.get(genre_id)
-            if genre:
-                book.genres.append(genre)
-        
-        book.tags = []
-        if form.tags.data:
-            for tag_name in [t.strip() for t in form.tags.data.split(',') if t.strip()]:
-                tag = Tag.query.filter(func.lower(Tag.name) == func.lower(tag_name)).first()
-                if not tag:
-                    tag = Tag(name=tag_name)
-                    db.session.add(tag)
-                book.tags.append(tag)
-        
-        db.session.commit()
-        flash('Książka zaktualizowana!', 'success')
-        return redirect(url_for('book_details', book_id=book.id))
-    
+        try:
+            book.title = form.title.data
+            book.author = form.author.data
+            book.description = form.description.data
+            book.isbn = form.isbn.data
+
+            if form.cover.data:
+                file = form.cover.data
+                if file and allowed_file(file.filename):
+                    if book.cover_url:
+                        old_file_path = os.path.join('static', book.cover_url.lstrip('/'))
+                        if os.path.exists(old_file_path):
+                            os.remove(old_file_path)
+                    
+                    filename = secure_filename(f"{uuid.uuid4().hex}.{file.filename.rsplit('.', 1)[1].lower()}")
+                    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    img = Image.open(file_path)
+                    img.thumbnail((300, 300))
+                    img.save(file_path)
+                    book.cover_url = f"/uploads/covers/{filename}"
+
+            book.genres = []
+            for genre_id in form.genres.data:
+                genre = Genre.query.get(genre_id) 
+                if genre:
+                    book.genres.append(genre) 
+
+            book.tags = []
+            if form.tags.data:
+                for tag_name in [t.strip() for t in form.tags.data.split(',') if t.strip()]:
+                    tag = Tag.query.filter(func.lower(Tag.name) == func.lower(tag_name)).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        db.session.add(tag)
+                    book.tags.append(tag)
+
+            db.session.commit()
+            flash('Książka została zaktualizowana!', 'success')
+            return redirect(url_for('book_details', book_id=book.id))
+        except Exception as e:
+            db.session.rollback()
+            flash('Wystąpił błąd podczas aktualizacji książki', 'danger')
+            app.logger.error(f"Error updating book: {str(e)}")
+            return redirect(url_for('edit_book', book_id=book.id))
+
     return render_template('edit_book.html', form=form, book=book)
 
 #

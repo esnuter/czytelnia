@@ -62,6 +62,13 @@
                 <div class="card-header bg-primary text-white">
                     <h2 class="mb-0 text-white">{{ book.title }}</h2>
                     <h4 class="mb-0 text-light">{{ book.author }}</h4>
+                    {% if current_user.is_moderator %}
+                    <div class="mt-3">
+                        <a href="{{ url_for('edit_book', book_id=book.id) }}" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Edytuj książkę
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     <div class="d-flex align-items-center mb-4">
@@ -166,6 +173,7 @@
                         </ul>
                     </nav>
                     {% endif %}
+                    
                 </div>
             </div>
         </div>
