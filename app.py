@@ -321,19 +321,15 @@ def my_library():
     per_page = request.args.get('per_page', 5, type=int)
     shelf_id = request.args.get('shelf', type=int)
     
+    # Pobierz wszystkie półki użytkownika
     shelves = Shelf.query.filter_by(user_id=current_user.id).order_by(Shelf.is_default.desc(), Shelf.name).all()
     
+    # Jeśli użytkownik nie ma półek, utwórz domyślne
     if not shelves:
         create_default_shelves(current_user)
         shelves = Shelf.query.filter_by(user_id=current_user.id).all()
     
-    query = UserLibrary.query.filter_by(user_id=current_user.id)
-    
-    if shelf_id:
-        query = query.filter_by(shelf_id=shelf_id)
-    
-    library_pagination = query.order_by(UserLibrary.added_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    
+    # Oblicz liczbę książek na każdej półce
     shelf_counts = {}
     for shelf in shelves:
         count = UserLibrary.query.filter_by(
@@ -342,14 +338,41 @@ def my_library():
         ).count()
         shelf_counts[shelf.id] = count
     
+    # Zapytanie dla książek w bibliotece
+    query = UserLibrary.query.filter_by(user_id=current_user.id)
+    
+    # Filtruj według półki jeśli wybrana
+    if shelf_id:
+        query = query.filter_by(shelf_id=shelf_id)
+        selected_shelf_name = Shelf.query.get(shelf_id).name
+    else:
+        selected_shelf_name = "Wszystkie książki"
+    
+    # Paginacja
+    pagination = query.order_by(UserLibrary.added_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Oblicz całkowitą liczbę książek i przeczytanych
+    total_books = UserLibrary.query.filter_by(user_id=current_user.id).count()
+    finished_shelf = Shelf.query.filter_by(user_id=current_user.id, name='Przeczytane').first()
+    finished_books = UserLibrary.query.filter_by(user_id=current_user.id, shelf_id=finished_shelf.id).count() if finished_shelf else 0
+    
+    # Znajdź półki specjalne dla przycisków
+    reading_shelf = Shelf.query.filter_by(user_id=current_user.id, name='W trakcie czytania').first()
+    finished_shelf = Shelf.query.filter_by(user_id=current_user.id, name='Przeczytane').first()
+    
     return render_template(
         'my_library.html',
-        library_entries=library_pagination.items,
-        pagination=library_pagination,
-        per_page=per_page,
         shelves=shelves,
         shelf_counts=shelf_counts,
-        selected_shelf=shelf_id
+        user_books=pagination.items,
+        pagination=pagination,
+        per_page=per_page,
+        selected_shelf=shelf_id,
+        selected_shelf_name=selected_shelf_name,
+        total_books=total_books,
+        finished_books=finished_books,
+        reading_shelf=reading_shelf,
+        finished_shelf=finished_shelf
     )
 
 def create_default_shelves(user):
@@ -652,9 +675,11 @@ def add_to_shelf(book_id, shelf_id):
 @login_required
 def create_shelf():
     shelf_name = request.form.get('shelf_name')
+    current_shelf = request.args.get('shelf', type=int)  
+    
     if not shelf_name or len(shelf_name) > 50:
         flash('Nazwa półki musi mieć od 1 do 50 znaków', 'danger')
-        return redirect(url_for('my_shelves'))
+        return redirect(url_for('my_library', shelf=current_shelf) if current_shelf else redirect(url_for('my_library')))
     
     shelf = Shelf(
         user_id=current_user.id,
@@ -664,7 +689,7 @@ def create_shelf():
     db.session.commit()
     
     flash(f'Utworzono nową półkę: "{shelf.name}"', 'success')
-    return redirect(url_for('my_shelves'))
+    return redirect(url_for('my_library', shelf=current_shelf)) if current_shelf else redirect(url_for('my_library'))
 
 @app.route('/shelf/<int:shelf_id>')
 @login_required
