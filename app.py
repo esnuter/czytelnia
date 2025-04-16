@@ -102,6 +102,21 @@ def register():
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user = User(username=form.username.data, password=hashed_password)
+        default_shelves = [
+            ('Do przeczytania', True),
+            ('W trakcie czytania', True),
+            ('Przeczytane', True),
+            ('Ulubione', False)
+        ]
+
+        for name, is_default in default_shelves:
+            shelf = Shelf(
+                user_id=user.id,
+                name=name,
+                is_default=is_default
+            )
+            db.session.add(shelf)
+
         db.session.add(user)
         db.session.commit()
         flash('Konto stworzone! Możesz się zalogować.', 'success')
@@ -233,7 +248,6 @@ def add_book():
 
 @app.route('/books')
 def book_list():
-    # Pobierz parametry filtrowania
     genre_id = request.args.get('genre', type=int)
     tag_id = request.args.get('tag', type=int)
     search_query = request.args.get('search', '')
@@ -241,18 +255,14 @@ def book_list():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 6, type=int)
 
-    # Bazowe zapytanie
     query = Book.query
 
-    # Filtruj po gatunku jeśli wybrano
     if genre_id:
         query = query.join(Book.genres).filter(Genre.id == genre_id)
 
-    # Filtruj po tagu jeśli wybrano
     if tag_id:
         query = query.join(Book.tags).filter(Tag.id == tag_id)
 
-    # Wyszukaj po tytule/autorze jeśli podano
     if search_query:
         query = query.filter(
             db.or_(
@@ -261,7 +271,6 @@ def book_list():
             )
         )
 
-    # Sortowanie
     if sort_by == 'title_asc':
         query = query.order_by(Book.title.asc())
     elif sort_by == 'title_desc':
@@ -277,13 +286,10 @@ def book_list():
     elif sort_by == 'best_rated':
         query = query.outerjoin(Review).group_by(Book.id).order_by(db.func.avg(Review.rating).desc())
 
-    # Paginacja
     books_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    # Pobierz listę gatunków i tagów dla filtra
     all_genres = Genre.query.order_by(Genre.name).all()
     
-    # POPRAWIONE: Zapytanie o popularne tagi
     popular_tags = db.session.query(
         Tag,
         db.func.count(Book.id).label('book_count')
@@ -313,31 +319,73 @@ def book_list():
 def my_library():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 5, type=int)
+    shelf_id = request.args.get('shelf', type=int)
     
-    library_pagination = UserLibrary.query.filter_by(user_id=current_user.id)\
-        .order_by(UserLibrary.status.desc(), UserLibrary.id.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
+    shelves = Shelf.query.filter_by(user_id=current_user.id).order_by(Shelf.is_default.desc(), Shelf.name).all()
     
-    total_books = library_pagination.total
-    finished_books = UserLibrary.query.filter_by(
-        user_id=current_user.id,
-        status='finished'
-    ).count()
+    if not shelves:
+        create_default_shelves(current_user)
+        shelves = Shelf.query.filter_by(user_id=current_user.id).all()
+    
+    query = UserLibrary.query.filter_by(user_id=current_user.id)
+    
+    if shelf_id:
+        query = query.filter_by(shelf_id=shelf_id)
+    
+    library_pagination = query.order_by(UserLibrary.added_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    shelf_counts = {}
+    for shelf in shelves:
+        count = UserLibrary.query.filter_by(
+            user_id=current_user.id,
+            shelf_id=shelf.id
+        ).count()
+        shelf_counts[shelf.id] = count
     
     return render_template(
         'my_library.html',
-        user_books=library_pagination.items,
+        library_entries=library_pagination.items,
         pagination=library_pagination,
         per_page=per_page,
-        total_books=total_books,
-        finished_books=finished_books
+        shelves=shelves,
+        shelf_counts=shelf_counts,
+        selected_shelf=shelf_id
     )
+
+def create_default_shelves(user):
+    default_shelves = [
+        ('Do przeczytania', True),
+        ('W trakcie czytania', True),
+        ('Przeczytane', True),
+        ('Ulubione', False)
+    ]
+    
+    for name, is_default in default_shelves:
+        shelf = Shelf(
+            user_id=user.id,
+            name=name,
+            is_default=is_default
+        )
+        db.session.add(shelf)
+    db.session.commit()
 
 @app.route('/add_to_library/<int:book_id>', methods=['POST'])
 @login_required
 def add_to_library(book_id):
     book = Book.query.get_or_404(book_id)
     
+    default_shelf = Shelf.query.filter_by(
+        user_id=current_user.id,
+        is_default=True
+    ).first()
+
+    if not default_shelf:
+        create_default_shelves(current_user)
+        default_shelf = Shelf.query.filter_by(
+            user_id=current_user.id,
+            is_default=True
+        ).first()
+
     existing_entry = UserLibrary.query.filter(
         and_(
             UserLibrary.user_id == current_user.id,
@@ -351,7 +399,7 @@ def add_to_library(book_id):
         new_entry = UserLibrary(
             user_id=current_user.id,
             book_id=book_id,
-            status='reading'  # Deafult status
+            shelf_id=default_shelf.id
         )
         db.session.add(new_entry)
         db.session.commit()
@@ -359,18 +407,20 @@ def add_to_library(book_id):
     
     return redirect(url_for('book_list'))
 
-@app.route('/update_status/<int:entry_id>/<status>', methods=['POST'])
+@app.route('/move_to_shelf/<int:entry_id>/<int:shelf_id>', methods=['POST'])
 @login_required
-def update_status(entry_id, status):
+def move_to_shelf(entry_id, shelf_id):
     entry = UserLibrary.query.get_or_404(entry_id)
+    shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
     
     if entry.user_id != current_user.id:
         flash('Brak uprawnień!', 'danger')
         return redirect(url_for('my_library'))
     
-    entry.status = status
+    entry.shelf_id = shelf.id
     db.session.commit()
-    flash(f'Status książki "{entry.library_book.title}" zaktualizowany na "{status}"!', 'success')
+    
+    flash(f'Książka "{entry.book.title}" przeniesiona do półki "{shelf.name}"', 'success')
     return redirect(url_for('my_library'))
 
 @app.route('/remove_from_library/<int:entry_id>', methods=['POST'])
@@ -378,7 +428,7 @@ def update_status(entry_id, status):
 def remove_from_library(entry_id):
     entry = UserLibrary.query.get_or_404(entry_id)
     
-    if entry.library_user.id != current_user.id:
+    if entry.user_id != current_user.id:
         flash('Brak uprawnień!', 'danger')
         return redirect(url_for('my_library'))
     
@@ -550,15 +600,126 @@ def edit_book(book_id):
 
     return render_template('edit_book.html', form=form, book=book)
 
+@app.route('/my_shelves')
+@login_required
+def my_shelves():
+    shelves = Shelf.query.filter_by(user_id=current_user.id)\
+        .order_by(Shelf.is_default.desc(), Shelf.name)\
+        .all()
+    
+    if not shelves:
+        create_default_shelves(current_user)
+        shelves = Shelf.query.filter_by(user_id=current_user.id)\
+            .order_by(Shelf.is_default.desc(), Shelf.name)\
+            .all()
+    
+    shelf_counts = {}
+    for shelf in shelves:
+        count = UserLibrary.query.filter_by(
+            user_id=current_user.id,
+            shelf_id=shelf.id
+        ).count()
+        shelf_counts[shelf.id] = count
+    
+    return render_template('shelves.html', shelves=shelves, shelf_counts=shelf_counts)
+
+@app.route('/add_to_shelf/<int:book_id>/<int:shelf_id>', methods=['POST'])
+@login_required
+def add_to_shelf(book_id, shelf_id):
+    shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
+    book = Book.query.get_or_404(book_id)
+    
+    library_entry = UserLibrary.query.filter_by(
+        user_id=current_user.id,
+        book_id=book_id
+    ).first()
+    
+    if library_entry:
+        library_entry.shelf_id = shelf_id
+    else:
+        library_entry = UserLibrary(
+            user_id=current_user.id,
+            book_id=book_id,
+            shelf_id=shelf_id
+        )
+        db.session.add(library_entry)
+    
+    db.session.commit()
+    flash(f'Książka "{book.title}" dodana do półki "{shelf.name}"', 'success')
+    return redirect(request.referrer or url_for('book_details', book_id=book_id))
+
+@app.route('/create_shelf', methods=['POST'])
+@login_required
+def create_shelf():
+    shelf_name = request.form.get('shelf_name')
+    if not shelf_name or len(shelf_name) > 50:
+        flash('Nazwa półki musi mieć od 1 do 50 znaków', 'danger')
+        return redirect(url_for('my_shelves'))
+    
+    shelf = Shelf(
+        user_id=current_user.id,
+        name=shelf_name.strip()
+    )
+    db.session.add(shelf)
+    db.session.commit()
+    
+    flash(f'Utworzono nową półkę: "{shelf.name}"', 'success')
+    return redirect(url_for('my_shelves'))
+
+@app.route('/shelf/<int:shelf_id>')
+@login_required
+def shelf_books(shelf_id):
+    shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
+    
+    books_pagination = Book.query.join(
+        UserLibrary
+    ).filter(
+        UserLibrary.user_id == current_user.id,
+        UserLibrary.shelf_id == shelf_id
+    ).order_by(
+        UserLibrary.added_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template(
+        'shelf_books.html',
+        shelf=shelf,
+        books=books_pagination.items,
+        pagination=books_pagination
+    )
+
 #
 
 with app.app_context():
     db.create_all()
 
-    if not User.query.filter_by(username='admin').first():
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
         hashed_password = bcrypt.generate_password_hash('admin123').decode('utf-8')
-        admin = User(username='admin', password=hashed_password, is_moderator=True)
+        admin = User(
+            username='admin',
+            password=hashed_password,
+            is_moderator=True
+        )
         db.session.add(admin)
+        
+        default_shelves = [
+            ('Do przeczytania', True),
+            ('W trakcie czytania', True),
+            ('Przeczytane', True),
+            ('Ulubione', False)
+        ]
+        
+        for name, is_default in default_shelves:
+            shelf = Shelf(
+                user_id=admin.id,
+                name=name,
+                is_default=is_default
+            )
+            db.session.add(shelf)
+        
         db.session.commit()
 
 if __name__ == '__main__':

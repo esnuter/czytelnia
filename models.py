@@ -11,12 +11,8 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(100), nullable=False)
     is_moderator = db.Column(db.Boolean, default=False)
 
-    library_books = db.relationship(
-        'UserLibrary',
-        backref='library_user',
-        lazy=True,
-        cascade='all, delete-orphan'
-    )
+    library_books = db.relationship('UserLibrary', back_populates='user')
+    shelves = db.relationship('Shelf', back_populates='user', lazy='dynamic')
     reviews = db.relationship('Review', backref='review_user', lazy=True)
 
 class Book(db.Model):
@@ -30,12 +26,7 @@ class Book(db.Model):
     isbn = db.Column(db.String(20)) 
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
-    library_entries = db.relationship(
-        'UserLibrary',
-        backref='library_book',
-        lazy=True,
-        cascade='all, delete-orphan'
-    )
+    library_entries = db.relationship('UserLibrary', back_populates='book')
     book_reviews = db.relationship('Review', backref='review_book', lazy=True)
 
 
@@ -54,10 +45,17 @@ class Review(db.Model):
     )
 
 class UserLibrary(db.Model):
+    __tablename__ = 'user_library'
+    
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default='reading')  # 'reading'/'finished'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
+    shelf_id = db.Column(db.Integer, db.ForeignKey('shelves.id'))  
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    book = db.relationship('Book', back_populates='library_entries')
+    shelf = db.relationship('Shelf', back_populates='books')
+    user = db.relationship('User', back_populates='library_books')
 
 class Genre(db.Model):
     __tablename__ = 'genres'
@@ -71,6 +69,17 @@ class Tag(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     books = db.relationship('Book', secondary='book_tags', backref=db.backref('tags', lazy=True))
 
+class Shelf(db.Model):
+    __tablename__ = 'shelves'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    name = db.Column(db.String(50), nullable=False)
+    is_default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', back_populates='shelves')
+    books = db.relationship('UserLibrary', back_populates='shelf')
 
 book_genres = db.Table('book_genres',
     db.Column('book_id', db.Integer, db.ForeignKey('books.id'), primary_key=True),

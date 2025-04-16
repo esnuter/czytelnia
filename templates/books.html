@@ -3,14 +3,12 @@
 {% block content %}
 <div class="container">
     <div class="row mb-4">
-        <!-- Filtry po lewej stronie -->
         <div class="col-md-3">
             <div class="card mb-4">
                 <div class="card-header">
                     <h5>Filtruj książki</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Filtrowanie po gatunkach -->
                     <h6 class="mt-2">Gatunki</h6>
                     <div class="list-group">
                         <a href="{{ url_for('book_list') }}" 
@@ -25,7 +23,6 @@
                         {% endfor %}
                     </div>
 
-                    <!-- Filtrowanie po tagach -->
                     <h6 class="mt-4">Popularne tagi</h6>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{{ url_for('book_list') }}" 
@@ -43,9 +40,7 @@
             </div>
         </div>
 
-        <!-- Lista książek po prawej stronie -->
         <div class="col-md-9">
-            <!-- Wyszukiwarka i sortowanie -->
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="GET" class="row g-3">
@@ -85,7 +80,6 @@
                 </div>
             </div>
 
-            <!-- Lista książek -->
             {% if books %}
             <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                 {% for book in books %}
@@ -126,7 +120,6 @@
             </div>
             {% endif %}
 
-            <!-- Paginacja -->
             {% if pagination.pages > 1 %}
             <nav class="mt-4">
                 <ul class="pagination justify-content-center">

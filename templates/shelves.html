@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Moje półki{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-bookmark"></i> Moje półki</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_shelf') }}" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" name="shelf_name" class="form-control" placeholder="Nazwa nowej półki" required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus"></i> Utwórz półkę
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="list-group">
+                        {% for shelf in shelves %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{{ url_for('shelf_books', shelf_id=shelf.id) }}" class="fw-bold">
+                                    {{ shelf.name }}
+                                </a>
+                                {% if shelf.is_default %}
+                                <span class="badge bg-secondary ms-2">Domyślna</span>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ shelf_counts[shelf.id] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

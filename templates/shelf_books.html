@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ shelf.name }} - Moja biblioteczka{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('my_shelves') }}">Moje półki</a></li>
+            <li class="breadcrumb-item active">{{ shelf.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-bookmark{% if shelf.is_default %}-fill{% endif %}"></i> {{ shelf.name }}</h2>
+        <span class="badge bg-primary rounded-pill">
+            {{ pagination.total }} książek
+        </span>
+    </div>
+
+    {% if books %}
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for book in books %}
+        <div class="col">
+            <div class="card h-100">
+                {% if book.cover_url %}
+                <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 300px; object-fit: cover;">
+                {% else %}
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 300px;">
+                  <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
+                </div>
+                {% endif %}
+                <div class="card-body">
+                  <h5 class="card-title">{{ book.title }}</h5>
+                  <p class="card-text text-muted"><i class="bi bi-person"></i> {{ book.author }}</p>
+                  <p class="card-text text-truncate">{{ book.description }}</p>
+                </div>
+                <div class="card-footer bg-white">
+                  <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-outline-primary btn-sm">
+                      <i class="bi bi-info-circle"></i> Szczegóły
+                  </a>
+                  {% if current_user.is_authenticated %}
+                  <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}" class="d-inline">
+                      <button type="submit" class="btn btn-outline-success btn-sm">
+                          <i class="bi bi-plus-circle"></i> Do biblioteki
+                      </button>
+                  </form>
+                  {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        Ta półka jest pusta. Dodaj książki z <a href="{{ url_for('book_list') }}">listy książek</a>.
+    </div>
+    {% endif %}
+
+    <!-- Paginacja -->
+    {% if pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('shelf_books', shelf_id=shelf.id, page=pagination.prev_num) }}">
+                    &laquo;
+                </a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('book_list', page=p, per_page=per_page) }}">{{ p }}</a>
+                </li>
+              {% else %}
+                  <li class="page-item disabled">
+                      <span class="page-link">...</span>
+                  </li>
+              {% endif %}
+              {% endfor %}
+          
+          {% if pagination.has_next %}
+          <li class="page-item">
+              <a class="page-link" href="{{ url_for('book_list', 
+                  page=pagination.next_num,
+                  search=search_query,
+                  sort_by=sort_by,
+                  per_page=per_page,
+                  genre=selected_genre,
+                  tag=selected_tag
+              ) }}">&raquo;</a>
+          </li>
+          {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

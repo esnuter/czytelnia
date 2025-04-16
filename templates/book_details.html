@@ -32,6 +32,22 @@
                                 <i class="bi bi-check-circle"></i> Przeczytana
                                 {% endif %}
                             </button>
+                            <div class="btn-group mt-3">
+                            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="bi bi-bookmark-plus"></i> Dodaj do półki
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for shelf in current_user.shelves %}
+                                <li>
+                                    <form method="POST" action="{{ url_for('add_to_shelf', book_id=book.id, shelf_id=shelf.id) }}">
+                                        <button type="submit" class="dropdown-item">
+                                            {{ shelf.name }}
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                             <form method="POST" action="{{ url_for('remove_from_library', entry_id=library_entry.id) }}" class="ms-2">
                                 <button type="submit" class="btn btn-sm btn-danger">
                                     <i class="bi bi-trash"></i>
