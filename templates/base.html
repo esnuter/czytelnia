@@ -38,18 +38,23 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
-                  {% if current_user.is_authenticated %}
-                  <li class="nav-item dropdown">
+                    {% if current_user.is_authenticated %}
+                    {% if current_user.is_moderator %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="moderatorDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-shield-lock"></i> Moderacja
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('add_book') }}">Dodaj książkę</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('manage_genres') }}">Zarządzaj gatunkami</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item dropdown">
                       <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                           <i class="bi bi-person-circle"></i> {{ current_user.username }}
                       </a>
                       <ul class="dropdown-menu dropdown-menu-end">
-                          {% if current_user.is_moderator %}
-                          <li><a class="dropdown-item" href="{{ url_for('add_book') }}">
-                              <i class="bi bi-plus-circle"></i> Dodaj książkę
-                          </a></li>
-                          <li><hr class="dropdown-divider"></li>
-                          {% endif %}
                           <li><a class="dropdown-item" href="{{ url_for('my_library') }}">
                               <i class="bi bi-collection"></i> Moja biblioteka
                           </a></li>

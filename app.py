@@ -2,12 +2,12 @@ from flask import Flask, render_template, redirect, url_for, flash, request, sen
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, Length, Email, ValidationError, Regexp
+from wtforms import StringField, PasswordField, SubmitField, SelectMultipleField
+from wtforms.validators import DataRequired, Length, ValidationError, Optional
 from extensions import db, login_manager, bcrypt
 from models import *
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 import os
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -54,6 +54,17 @@ class BookForm(FlaskForm):
     title = StringField('Tytuł', validators=[DataRequired()])
     author = StringField('Autor', validators=[DataRequired()])
     description = TextAreaField('Opis')
+    genres = SelectMultipleField(
+        'Gatunki',
+        coerce=int,
+        choices=[],
+        render_kw={"class": "select2-multiple", "data-placeholder": "Wybierz gatunki..."}
+    )
+    tags = StringField(
+        'Tagi (oddziel przecinkami)',
+        validators=[Optional()],
+        render_kw={"placeholder": "np. klasyka, dystopia, nagroda nobla"}
+    )
     isbn = StringField('ISBN')
     cover = FileField('Okładka książki', validators=[
         FileAllowed(['jpg', 'jpeg', 'png'], 'Tylko obrazy JPG/PNG!')
@@ -75,6 +86,14 @@ class ReviewForm(FlaskForm):
         ]
     )
     submit = SubmitField('Dodaj recenzję')
+
+class GenreForm(FlaskForm):
+    name = StringField('Nazwa gatunku', validators=[DataRequired(), Length(max=50)])
+    submit = SubmitField('Zapisz')
+
+    def validate_name(self, field):
+        if Genre.query.filter(func.lower(Genre.name) == func.lower(field.data)).first():
+            raise ValidationError('Gatunek o tej nazwie już istnieje')
 
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
@@ -168,7 +187,10 @@ def add_book():
         return redirect(url_for('home'))
 
     form = BookForm()
+    form.genres.choices = [(g.id, g.name) for g in Genre.query.order_by('name')]
+    
     if form.validate_on_submit():
+        # Przetwarzanie okładki
         cover_url = ''
         if form.cover.data:
             file = form.cover.data
@@ -182,6 +204,7 @@ def add_book():
                 img.save(file_path)
                 cover_url = f"/uploads/covers/{filename}"
 
+        # Tworzenie książki DOPIERO po walidacji
         book = Book(
             title=form.title.data,
             author=form.author.data,
@@ -190,11 +213,27 @@ def add_book():
             cover_url=cover_url
         )
         db.session.add(book)
+        
+        # Dodawanie gatunków
+        for genre_id in form.genres.data:
+            genre = Genre.query.get(genre_id)
+            if genre:
+                book.genres.append(genre)
+        
+        # Dodawanie tagów
+        if form.tags.data:
+            for tag_name in [t.strip() for t in form.tags.data.split(',') if t.strip()]:
+                tag = Tag.query.filter(func.lower(Tag.name) == func.lower(tag_name)).first()
+                if not tag:
+                    tag = Tag(name=tag_name)
+                    db.session.add(tag)
+                book.tags.append(tag)
+        
         db.session.commit()
         flash('Książka dodana!', 'success')
-        return redirect(url_for('book_list'))
+        return redirect(url_for('book_details', book_id=book.id))
     
-    return render_template('add_book.html', form=form) 
+    return render_template('add_book.html', form=form)
 
 @app.route('/books')
 def book_list():
@@ -202,9 +241,16 @@ def book_list():
     per_page = request.args.get('per_page', 6, type=int)
     search_query = request.args.get('search', '')
     sort_by = request.args.get('sort_by', 'title_asc')
+    genre_id = request.args.get('genre', type=int)
+    tag_id = request.args.get('tag', type=int)
 
     query = Book.query
     
+    if genre_id:
+        query = query.join(Book.genres).filter(Genre.id == genre_id)
+    if tag_id:
+        query = query.join(Book.tags).filter(Tag.id == tag_id)
+
     if search_query:
         query = query.filter(
             or_(
@@ -346,7 +392,10 @@ def add_review(book_id):
 @app.route('/book/<int:book_id>')
 def book_details(book_id):
     page = request.args.get('page', 1, type=int)
-    book = Book.query.get_or_404(book_id)
+    book = Book.query.options(
+        db.joinedload(Book.genres),
+        db.joinedload(Book.tags)
+    ).get_or_404(book_id)
     
     reviews_query = Review.query.filter_by(book_id=book.id).order_by(Review.created_at.desc())
     reviews_pagination = reviews_query.paginate(page=page, per_page=5, error_out=False)
@@ -373,6 +422,80 @@ def book_details(book_id):
 @app.route('/uploads/covers/<filename>')
 def uploaded_cover(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/manage/genres')
+@login_required
+def manage_genres():
+    if not current_user.is_moderator:
+        abort(403)
+    genres = Genre.query.order_by(Genre.name).all()
+    form = GenreForm()
+    return render_template('manage_genres.html', genres=genres, form=form)
+
+@app.route('/genre/add', methods=['POST'])
+@login_required
+def add_genre():
+    if not current_user.is_moderator:
+        abort(403)
+    form = GenreForm()
+    if form.validate_on_submit():
+        genre = Genre(name=form.name.data)
+        db.session.add(genre)
+        db.session.commit()
+        flash('Gatunek został dodany', 'success')
+    else:
+        flash('Błąd podczas dodawania gatunku', 'danger')
+    return redirect(url_for('manage_genres'))
+
+@app.route('/genre/delete/<int:genre_id>', methods=['POST'])
+@login_required
+def delete_genre(genre_id):
+    if not current_user.is_moderator:
+        abort(403)
+    genre = Genre.query.get_or_404(genre_id)
+    db.session.delete(genre)
+    db.session.commit()
+    flash('Gatunek został usunięty', 'success')
+    return redirect(url_for('manage_genres'))
+
+@app.route('/edit_book/<int:book_id>', methods=['GET', 'POST'])
+@login_required
+def edit_book(book_id):
+    if not current_user.is_moderator:
+        flash('Brak uprawnień!', 'danger')
+        return redirect(url_for('home'))
+    
+    book = Book.query.get_or_404(book_id)
+    form = BookForm(obj=book)
+    form.genres.choices = [(g.id, g.name) for g in Genre.query.order_by('name')]
+    
+    if request.method == 'GET':
+        form.genres.data = [g.id for g in book.genres]
+        form.tags.data = ', '.join([t.name for t in book.tags])
+    
+    if form.validate_on_submit():
+        form.populate_obj(book)
+        
+        book.genres = []
+        for genre_id in form.genres.data:
+            genre = Genre.query.get(genre_id)
+            if genre:
+                book.genres.append(genre)
+        
+        book.tags = []
+        if form.tags.data:
+            for tag_name in [t.strip() for t in form.tags.data.split(',') if t.strip()]:
+                tag = Tag.query.filter(func.lower(Tag.name) == func.lower(tag_name)).first()
+                if not tag:
+                    tag = Tag(name=tag_name)
+                    db.session.add(tag)
+                book.tags.append(tag)
+        
+        db.session.commit()
+        flash('Książka zaktualizowana!', 'success')
+        return redirect(url_for('book_details', book_id=book.id))
+    
+    return render_template('edit_book.html', form=form, book=book)
 
 #
 
