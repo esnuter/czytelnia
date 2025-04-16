@@ -58,3 +58,26 @@ class UserLibrary(db.Model):
     status = db.Column(db.String(20), default='reading')  # 'reading'/'finished'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     book_id = db.Column(db.Integer, db.ForeignKey('books.id'))
+
+class Genre(db.Model):
+    __tablename__ = 'genres'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    books = db.relationship('Book', secondary='book_genres', backref=db.backref('genres', lazy=True))
+
+class Tag(db.Model):
+    __tablename__ = 'tags'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    books = db.relationship('Book', secondary='book_tags', backref=db.backref('tags', lazy=True))
+
+
+book_genres = db.Table('book_genres',
+    db.Column('book_id', db.Integer, db.ForeignKey('books.id'), primary_key=True),
+    db.Column('genre_id', db.Integer, db.ForeignKey('genres.id'), primary_key=True)
+)
+
+book_tags = db.Table('book_tags',
+    db.Column('book_id', db.Integer, db.ForeignKey('books.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+)
