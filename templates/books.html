@@ -1,157 +1,176 @@
 {% extends "base.html" %}
 
-{% block title %}Lista książek{% endblock %}
-
 {% block content %}
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-book"></i> Książki</h1>
-        {% if current_user.is_moderator %}
-        <a href="{{ url_for('add_book') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Dodaj książkę
-        </a>
-        {% endif %}
-    </div>
+    <div class="row mb-4">
+        <!-- Filtry po lewej stronie -->
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Filtruj książki</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filtrowanie po gatunkach -->
+                    <h6 class="mt-2">Gatunki</h6>
+                    <div class="list-group">
+                        <a href="{{ url_for('book_list') }}" 
+                           class="list-group-item list-group-item-action {% if not selected_genre %}active{% endif %}">
+                            Wszystkie gatunki
+                        </a>
+                        {% for genre in all_genres %}
+                        <a href="{{ url_for('book_list', genre=genre.id) }}" 
+                           class="list-group-item list-group-item-action {% if selected_genre == genre.id %}active{% endif %}">
+                            {{ genre.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
 
-    <div class="card mb-4">
-        <div class="card-body p-3">
-            <div class="row g-2 align-items-center">
-                <!-- books searching -->
-                <div class="col-md-5">
-                    <form method="GET" action="{{ url_for('book_list') }}" class="input-group">
-                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input 
-                            type="text" 
-                            name="search" 
-                            class="form-control" 
-                            placeholder="Szukaj książek..." 
-                            value="{{ search_query }}"
-                        >
-                        <input type="hidden" name="sort_by" value="{{ sort_by }}">
-                        <input type="hidden" name="per_page" value="{{ per_page }}">
-                        <button type="submit" class="btn btn-primary">Szukaj</button>
-                        {% if search_query %}
-                        <a href="{{ url_for('book_list') }}" class="btn btn-outline-secondary">Wyczyść</a>
-                        {% endif %}
-                    </form>
+                    <!-- Filtrowanie po tagach -->
+                    <h6 class="mt-4">Popularne tagi</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('book_list') }}" 
+                           class="badge bg-secondary text-decoration-none {% if not selected_tag %}bg-primary{% endif %}">
+                            Wszystkie
+                        </a>
+                        {% for tag in popular_tags %}
+                        <a href="{{ url_for('book_list', tag=tag[0].id) }}" 
+                        class="badge bg-secondary text-decoration-none {% if selected_tag == tag[0].id %}bg-primary{% endif %}">
+                            {{ tag[0].name }} ({{ tag[1] }})
+                        </a>
+                        {% endfor %}
+                    </div>
                 </div>
-                
-                <!-- sorting -->
-                <div class="col-md-4">
-                    <form method="GET" action="{{ url_for('book_list') }}" class="input-group">
-                        <span class="input-group-text bg-white">Sortuj:</span>
-                        <select 
-                            name="sort_by" 
-                            class="form-select"
-                            onchange="this.form.submit()"
-                        >
-                            <option value="title_asc" {% if sort_by=='title_asc' %}selected{% endif %}>Tytuł A-Z</option>
-                            <option value="title_desc" {% if sort_by=='title_desc' %}selected{% endif %}>Tytuł Z-A</option>
-                            <option value="author_asc" {% if sort_by=='author_asc' %}selected{% endif %}>Autor A-Z</option>
-                            <option value="author_desc" {% if sort_by=='author_desc' %}selected{% endif %}>Autor Z-A</option>
-                            <option value="newest" {% if sort_by=='newest' %}selected{% endif %}>Najnowsze</option>
-                            <option value="oldest" {% if sort_by=='oldest' %}selected{% endif %}>Najstarsze</option>
-                        </select>
-                        <input type="hidden" name="search" value="{{ search_query }}">
-                        <input type="hidden" name="per_page" value="{{ per_page }}">
-                    </form>
-                </div>
-                
-                <!--  -->
-                <div class="col-md-3 text-end">
-                    <form method="GET" action="{{ url_for('book_list') }}" class="d-inline">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white">Pokaż:</span>
-                            <select 
-                                name="per_page" 
-                                class="form-select"
-                                onchange="this.form.submit()"
-                                style="width: 70px;"
-                            >
-                                <option value="6" {% if per_page == 6 %}selected{% endif %}>6</option>
-                                <option value="12" {% if per_page == 12 %}selected{% endif %}>12</option>
-                                <option value="24" {% if per_page == 24 %}selected{% endif %}>24</option>
+            </div>
+        </div>
+
+        <!-- Lista książek po prawej stronie -->
+        <div class="col-md-9">
+            <!-- Wyszukiwarka i sortowanie -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <input type="hidden" name="genre" value="{{ selected_genre }}">
+                        <input type="hidden" name="tag" value="{{ selected_tag }}">
+                        
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="Szukaj książek..." value="{{ search_query }}">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <select name="sort_by" class="form-select" onchange="this.form.submit()">
+                                <option value="title_asc" {% if sort_by=='title_asc' %}selected{% endif %}>Tytuł A-Z</option>
+                                <option value="title_desc" {% if sort_by=='title_desc' %}selected{% endif %}>Tytuł Z-A</option>
+                                <option value="author_asc" {% if sort_by=='author_asc' %}selected{% endif %}>Autor A-Z</option>
+                                <option value="author_desc" {% if sort_by=='author_desc' %}selected{% endif %}>Autor Z-A</option>
+                                <option value="newest" {% if sort_by=='newest' %}selected{% endif %}>Najnowsze</option>
+                                <option value="oldest" {% if sort_by=='oldest' %}selected{% endif %}>Najstarsze</option>
+                                <option value="best_rated" {% if sort_by=='best_rated' %}selected{% endif %}>Najlepiej oceniane</option>
                             </select>
-                            <input type="hidden" name="search" value="{{ search_query }}">
-                            <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <select name="per_page" class="form-select" onchange="this.form.submit()">
+                                <option value="6" {% if per_page==6 %}selected{% endif %}>6</option>
+                                <option value="12" {% if per_page==12 %}selected{% endif %}>12</option>
+                                <option value="24" {% if per_page==24 %}selected{% endif %}>24</option>
+                            </select>
                         </div>
                     </form>
                 </div>
             </div>
-        </div>
-    </div>
 
-{% if books %}
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-    {% for book in books %}
-    <div class="col">
-        <div class="card h-100 shadow-sm">
-            {% if book.cover_url %}
-            <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 300px; object-fit: cover;">
+            <!-- Lista książek -->
+            {% if books %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {% for book in books %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        {% if book.cover_url %}
+                        <img src="{{ book.cover_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 300px; object-fit: cover;">
+                        {% else %}
+                        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 300px;">
+                            <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ book.title }}</h5>
+                            <p class="card-text text-muted"><i class="bi bi-person"></i> {{ book.author }}</p>
+                            <p class="card-text text-truncate">{{ book.description }}</p>
+                        </div>
+                        <div class="card-footer bg-white">
+                            <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-info-circle"></i> Szczegóły
+                            </a>
+                            {% if current_user.is_authenticated %}
+                            <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-outline-success btn-sm">
+                                    <i class="bi bi-plus-circle"></i> Do biblioteki
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
             {% else %}
-            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 300px;">
-                <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
+            <div class="alert alert-info">
+                Brak książek spełniających kryteria wyszukiwania.
+                <a href="{{ url_for('book_list') }}" class="alert-link">Wyczyść filtry</a>
             </div>
             {% endif %}
-            <div class="card-body">
-                <h5 class="card-title">{{ book.title }}</h5>
-                <p class="card-text text-muted"><i class="bi bi-person"></i> {{ book.author }}</p>
-                <p class="card-text text-truncate">{{ book.description }}</p>
-            </div>
-            <div class="card-footer bg-white">
-                <a href="{{ url_for('book_details', book_id=book.id) }}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-info-circle"></i> Szczegóły
-                </a>
-                {% if current_user.is_authenticated %}
-                <form method="POST" action="{{ url_for('add_to_library', book_id=book.id) }}" class="d-inline">
-                    <button type="submit" class="btn btn-outline-success btn-sm">
-                        <i class="bi bi-plus-circle"></i> Do biblioteki
-                    </button>
-                </form>
-                {% endif %}
-            </div>
+
+            <!-- Paginacja -->
+            {% if pagination.pages > 1 %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('book_list', 
+                            page=pagination.prev_num,
+                            search=search_query,
+                            sort_by=sort_by,
+                            per_page=per_page,
+                            genre=selected_genre,
+                            tag=selected_tag
+                        ) }}">&laquo;</a>
+                    </li>
+                    {% endif %}                   
+
+                        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('book_list', page=p, per_page=per_page) }}">{{ p }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                        {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('book_list', 
+                            page=pagination.next_num,
+                            search=search_query,
+                            sort_by=sort_by,
+                            per_page=per_page,
+                            genre=selected_genre,
+                            tag=selected_tag
+                        ) }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
         </div>
     </div>
-    {% endfor %}
 </div>
-
-{% if pagination.pages > 1 %}
-<nav aria-label="Nawigacja książek" class="mt-4">
-    <ul class="pagination justify-content-center">
-        {% if pagination.has_prev %}
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('book_list', page=pagination.prev_num, per_page=per_page) }}">
-                &laquo; Poprzednia
-            </a>
-        </li>
-        {% endif %}
-        
-        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if p %}
-                <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('book_list', page=p, per_page=per_page) }}">{{ p }}</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">...</span>
-                </li>
-            {% endif %}
-        {% endfor %}
-        
-        {% if pagination.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="{{ url_for('book_list', page=pagination.next_num, per_page=per_page) }}">
-                Następna &raquo;
-            </a>
-        </li>
-        {% endif %}
-    </ul>
-</nav>
-{% endif %}
-
-{% else %}
-<div class="alert alert-info">
-    Brak książek w bazie danych. {% if current_user.is_moderator %}Dodaj pierwszą książkę!{% endif %}
-</div>
-{% endif %}
 {% endblock %}

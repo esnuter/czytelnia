@@ -121,3 +121,24 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 38px;
   padding: 5px;
 }
+
+/* Style dla filtrów */
+.filter-card {
+  position: sticky;
+  top: 20px;
+}
+
+.tag-badge {
+  transition: all 0.2s;
+}
+
+.tag-badge:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.active-genre {
+  background-color: var(--bs-primary);
+  color: white;
+  border-color: var(--bs-primary);
+}

@@ -190,7 +190,6 @@ def add_book():
     form.genres.choices = [(g.id, g.name) for g in Genre.query.order_by('name')]
     
     if form.validate_on_submit():
-        # Przetwarzanie okładki
         cover_url = ''
         if form.cover.data:
             file = form.cover.data
@@ -204,7 +203,6 @@ def add_book():
                 img.save(file_path)
                 cover_url = f"/uploads/covers/{filename}"
 
-        # Tworzenie książki DOPIERO po walidacji
         book = Book(
             title=form.title.data,
             author=form.author.data,
@@ -214,13 +212,11 @@ def add_book():
         )
         db.session.add(book)
         
-        # Dodawanie gatunków
         for genre_id in form.genres.data:
             genre = Genre.query.get(genre_id)
             if genre:
                 book.genres.append(genre)
         
-        # Dodawanie tagów
         if form.tags.data:
             for tag_name in [t.strip() for t in form.tags.data.split(',') if t.strip()]:
                 tag = Tag.query.filter(func.lower(Tag.name) == func.lower(tag_name)).first()
@@ -237,28 +233,35 @@ def add_book():
 
 @app.route('/books')
 def book_list():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 6, type=int)
-    search_query = request.args.get('search', '')
-    sort_by = request.args.get('sort_by', 'title_asc')
+    # Pobierz parametry filtrowania
     genre_id = request.args.get('genre', type=int)
     tag_id = request.args.get('tag', type=int)
+    search_query = request.args.get('search', '')
+    sort_by = request.args.get('sort_by', 'title_asc')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 6, type=int)
 
+    # Bazowe zapytanie
     query = Book.query
-    
+
+    # Filtruj po gatunku jeśli wybrano
     if genre_id:
         query = query.join(Book.genres).filter(Genre.id == genre_id)
+
+    # Filtruj po tagu jeśli wybrano
     if tag_id:
         query = query.join(Book.tags).filter(Tag.id == tag_id)
 
+    # Wyszukaj po tytule/autorze jeśli podano
     if search_query:
         query = query.filter(
-            or_(
+            db.or_(
                 Book.title.ilike(f'%{search_query}%'),
                 Book.author.ilike(f'%{search_query}%')
             )
         )
-    
+
+    # Sortowanie
     if sort_by == 'title_asc':
         query = query.order_by(Book.title.asc())
     elif sort_by == 'title_desc':
@@ -271,15 +274,39 @@ def book_list():
         query = query.order_by(Book.date_added.desc())
     elif sort_by == 'oldest':
         query = query.order_by(Book.date_added.asc())
-    
+    elif sort_by == 'best_rated':
+        query = query.outerjoin(Review).group_by(Book.id).order_by(db.func.avg(Review.rating).desc())
+
+    # Paginacja
     books_pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Pobierz listę gatunków i tagów dla filtra
+    all_genres = Genre.query.order_by(Genre.name).all()
     
-    return render_template('books.html', 
-                         books=books_pagination.items, 
-                         pagination=books_pagination,
-                         per_page=per_page,
-                         search_query=search_query,
-                         sort_by=sort_by)
+    # POPRAWIONE: Zapytanie o popularne tagi
+    popular_tags = db.session.query(
+        Tag,
+        db.func.count(Book.id).label('book_count')
+    ).join(
+        Tag.books
+    ).group_by(
+        Tag.id
+    ).order_by(
+        db.desc('book_count')
+    ).limit(10).all()
+
+    return render_template(
+        'books.html',
+        books=books_pagination.items,
+        pagination=books_pagination,
+        search_query=search_query,
+        sort_by=sort_by,
+        per_page=per_page,
+        all_genres=all_genres,
+        popular_tags=popular_tags,
+        selected_genre=genre_id,
+        selected_tag=tag_id
+    )
 
 @app.route('/my_library')
 @login_required
