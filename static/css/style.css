@@ -65,6 +65,7 @@ color: #ffc107;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   border-radius: 0.5rem;
   overflow: hidden;
+  
 }
 
 .card:hover {
@@ -163,3 +164,9 @@ h1, h2, h3, h4, h5, h6 {
   max-height: 80vh;
   overflow-y: auto;
 }
+
+.card-header h3{
+  color: white;
+}
+
+

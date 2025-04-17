@@ -1,20 +1,69 @@
-{% extends "base.html" %}  
+{% extends "base.html" %}
+
+{% block title %}Rejestracja{% endblock %}
 
 {% block content %}
-<h2>Rejestracja</h2>
-<form method="POST">
-    {{ form.hidden_tag() }}
-    <div>
-        {{ form.username.label }}<br>
-        {{ form.username(size=32) }}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="text-center my-3 fw-bold">
+                        <i class="bi bi-person-plus me-2"></i> Rejestracja
+                    </h3>
+                </div>
+                <div class="card-body bg-white rounded-bottom">
+                    <form method="POST" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-4">
+                            <label for="username" class="form-label fw-bold text-dark">Nazwa użytkownika</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="bi bi-person-badge text-primary"></i>
+                                </span>
+                                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Wprowadź nazwę użytkownika") }}
+                            </div>
+                            {% if form.username.errors %}
+                            <div class="invalid-feedback d-block text-danger">
+                                {{ form.username.errors[0] }}
+                            </div>
+                            {% endif %}
+                            <small class="text-muted">Od 3 do 50 znaków</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="password" class="form-label fw-bold text-dark">Hasło</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="bi bi-key-fill text-primary"></i>
+                                </span>
+                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Wprowadź hasło") }}
+                            </div>
+                            {% if form.password.errors %}
+                            <div class="invalid-feedback d-block text-danger">
+                                {{ form.password.errors[0] }}
+                            </div>
+                            {% endif %}
+                            <small class="text-muted">Minimum 6 znaków</small>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold py-2">
+                                <i class="bi bi-person-plus me-2"></i> Zarejestruj się
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <p class="mb-2 text-muted">Masz już konto?</p>
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-primary px-4 fw-bold">
+                            <i class="bi bi-box-arrow-in-right me-2"></i> Zaloguj się
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div>
-        {{ form.password.label }}<br>
-        {{ form.password(size=32) }}
-    </div>
-    <div>
-        {{ form.submit() }}
-    </div>
-</form>
-<small>Masz już konto? <a href="{{ url_for('login') }}">Zaloguj się</a></small>
+</div>
 {% endblock %}
