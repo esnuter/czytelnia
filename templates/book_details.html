@@ -196,3 +196,38 @@
     </div>
 </div>
 {% endblock %}
+
+<script>
+    document.querySelectorAll('.shelf-action').forEach(item => {
+      item.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const shelfId = this.dataset.shelfId;
+        const bookId = this.dataset.bookId;
+        const action = this.dataset.action;
+        
+        try {
+          const response = await fetch(`/api/shelves/${shelfId}/books/${bookId}`, {
+            method: action === 'add' ? 'POST' : 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            const toast = new bootstrap.Toast(document.getElementById('actionToast'));
+            document.getElementById('toastMessage').innerText = result.message;
+            toast.show();
+            
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            alert(result.message || 'Wystąpił błąd');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Wystąpił błąd podczas operacji');
+        }
+      });
+    });
+</script>

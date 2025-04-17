@@ -122,7 +122,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 5px;
 }
 
-/* Style dla filtrów */
+
 .filter-card {
   position: sticky;
   top: 20px;
@@ -141,4 +141,25 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--bs-primary);
   color: white;
   border-color: var(--bs-primary);
+}
+
+.shelf-item {
+  transition: all 0.3s ease;
+}
+.shelf-item:hover {
+  background-color: #f8f9fa;
+}
+.shelf-badge {
+  min-width: 2.5em;
+}
+
+.dropdown-scrollable {
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+  
+.dropdown-menu {
+  max-height: 80vh;
+  overflow-y: auto;
 }

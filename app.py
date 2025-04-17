@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request, send_from_directory
+from flask import Flask, render_template, redirect, url_for, flash, request, send_from_directory, jsonify, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
@@ -167,7 +167,8 @@ def home():
     
     if current_user.is_authenticated:
         if current_user.library_books:
-            user_authors = {entry.library_book.author for entry in current_user.library_books}
+            # Corrected from library_book to book
+            user_authors = {entry.book.author for entry in current_user.library_books}
             user_book_ids = {entry.book_id for entry in current_user.library_books}
             
             recommended_books = Book.query.filter(
@@ -318,18 +319,15 @@ def book_list():
 @login_required
 def my_library():
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 5, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
     shelf_id = request.args.get('shelf', type=int)
+    search_query = request.args.get('search', '')
+    sort_by = request.args.get('sort_by', 'added_desc')
+
+    shelves = Shelf.query.filter_by(user_id=current_user.id)\
+        .order_by(Shelf.is_default.desc(), Shelf.name)\
+        .all()
     
-    # Pobierz wszystkie półki użytkownika
-    shelves = Shelf.query.filter_by(user_id=current_user.id).order_by(Shelf.is_default.desc(), Shelf.name).all()
-    
-    # Jeśli użytkownik nie ma półek, utwórz domyślne
-    if not shelves:
-        create_default_shelves(current_user)
-        shelves = Shelf.query.filter_by(user_id=current_user.id).all()
-    
-    # Oblicz liczbę książek na każdej półce
     shelf_counts = {}
     for shelf in shelves:
         count = UserLibrary.query.filter_by(
@@ -337,39 +335,61 @@ def my_library():
             shelf_id=shelf.id
         ).count()
         shelf_counts[shelf.id] = count
+
+    query = db.session.query(UserLibrary, Book)\
+        .join(Book, UserLibrary.book_id == Book.id)\
+        .filter(UserLibrary.user_id == current_user.id)
     
-    # Zapytanie dla książek w bibliotece
-    query = UserLibrary.query.filter_by(user_id=current_user.id)
-    
-    # Filtruj według półki jeśli wybrana
     if shelf_id:
-        query = query.filter_by(shelf_id=shelf_id)
+        query = query.filter(UserLibrary.shelf_id == shelf_id)
         selected_shelf_name = Shelf.query.get(shelf_id).name
     else:
         selected_shelf_name = "Wszystkie książki"
     
-    # Paginacja
-    pagination = query.order_by(UserLibrary.added_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    if search_query:
+        query = query.filter(or_(
+            Book.title.ilike(f'%{search_query}%'),
+            Book.author.ilike(f'%{search_query}%')
+        ))
     
-    # Oblicz całkowitą liczbę książek i przeczytanych
+    if sort_by == 'title_asc':
+        query = query.order_by(Book.title.asc())
+    elif sort_by == 'title_desc':
+        query = query.order_by(Book.title.desc())
+    elif sort_by == 'author_asc':
+        query = query.order_by(Book.author.asc())
+    elif sort_by == 'author_desc':
+        query = query.order_by(Book.author.desc())
+    elif sort_by == 'added_desc':
+        query = query.order_by(UserLibrary.added_at.desc())
+    elif sort_by == 'added_asc':
+        query = query.order_by(UserLibrary.added_at.asc())
+    
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    user_books = pagination.items
+    
     total_books = UserLibrary.query.filter_by(user_id=current_user.id).count()
-    finished_shelf = Shelf.query.filter_by(user_id=current_user.id, name='Przeczytane').first()
-    finished_books = UserLibrary.query.filter_by(user_id=current_user.id, shelf_id=finished_shelf.id).count() if finished_shelf else 0
     
-    # Znajdź półki specjalne dla przycisków
     reading_shelf = Shelf.query.filter_by(user_id=current_user.id, name='W trakcie czytania').first()
     finished_shelf = Shelf.query.filter_by(user_id=current_user.id, name='Przeczytane').first()
+    finished_books = UserLibrary.query.filter_by(
+        user_id=current_user.id, 
+        shelf_id=finished_shelf.id
+    ).count() if finished_shelf else 0
     
     return render_template(
         'my_library.html',
         shelves=shelves,
         shelf_counts=shelf_counts,
-        user_books=pagination.items,
+        total_books=total_books,
+        user_books=user_books,
         pagination=pagination,
-        per_page=per_page,
         selected_shelf=shelf_id,
         selected_shelf_name=selected_shelf_name,
-        total_books=total_books,
+        search_query=search_query,
+        sort_by=sort_by,
+        per_page=per_page,
         finished_books=finished_books,
         reading_shelf=reading_shelf,
         finished_shelf=finished_shelf
@@ -397,23 +417,9 @@ def create_default_shelves(user):
 def add_to_library(book_id):
     book = Book.query.get_or_404(book_id)
     
-    default_shelf = Shelf.query.filter_by(
+    existing_entry = UserLibrary.query.filter_by(
         user_id=current_user.id,
-        is_default=True
-    ).first()
-
-    if not default_shelf:
-        create_default_shelves(current_user)
-        default_shelf = Shelf.query.filter_by(
-            user_id=current_user.id,
-            is_default=True
-        ).first()
-
-    existing_entry = UserLibrary.query.filter(
-        and_(
-            UserLibrary.user_id == current_user.id,
-            UserLibrary.book_id == book_id
-        )
+        book_id=book_id
     ).first()
     
     if existing_entry:
@@ -421,8 +427,7 @@ def add_to_library(book_id):
     else:
         new_entry = UserLibrary(
             user_id=current_user.id,
-            book_id=book_id,
-            shelf_id=default_shelf.id
+            book_id=book_id
         )
         db.session.add(new_entry)
         db.session.commit()
@@ -437,13 +442,12 @@ def move_to_shelf(entry_id, shelf_id):
     shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
     
     if entry.user_id != current_user.id:
-        flash('Brak uprawnień!', 'danger')
-        return redirect(url_for('my_library'))
+        abort(403)
     
     entry.shelf_id = shelf.id
     db.session.commit()
     
-    flash(f'Książka "{entry.book.title}" przeniesiona do półki "{shelf.name}"', 'success')
+    flash(f'Przeniesiono "{entry.book.title}" do półki "{shelf.name}"', 'success')
     return redirect(url_for('my_library'))
 
 @app.route('/remove_from_library/<int:entry_id>', methods=['POST'])
@@ -714,6 +718,86 @@ def shelf_books(shelf_id):
         books=books_pagination.items,
         pagination=books_pagination
     )
+
+@app.route('/api/shelves/<int:shelf_id>/books/<int:book_id>', methods=['POST', 'DELETE'])
+@login_required
+def manage_shelf_books(shelf_id, book_id):
+    shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
+    book = Book.query.get_or_404(book_id)
+    
+    if request.method == 'POST':
+        existing = UserLibrary.query.filter_by(
+            user_id=current_user.id,
+            book_id=book_id,
+            shelf_id=shelf_id
+        ).first()
+        
+        if existing:
+            return jsonify({'success': False, 'message': 'Książka już jest na tej półce'}), 400
+            
+        new_entry = UserLibrary(
+            user_id=current_user.id,
+            book_id=book_id,
+            shelf_id=shelf_id
+        )
+        db.session.add(new_entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Dodano "{book.title}" do półki "{shelf.name}"',
+            'shelf_name': shelf.name
+        })
+    
+    elif request.method == 'DELETE':
+        entry = UserLibrary.query.filter_by(
+            user_id=current_user.id,
+            book_id=book_id,
+            shelf_id=shelf_id
+        ).first_or_404()
+        
+        db.session.delete(entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Usunięto "{book.title}" z półki "{shelf.name}"'
+        })
+
+@app.route('/delete_shelf/<int:shelf_id>', methods=['POST'])
+@login_required
+def delete_shelf(shelf_id):
+    shelf = Shelf.query.filter_by(id=shelf_id, user_id=current_user.id).first_or_404()
+    
+    default_shelf = Shelf.query.filter_by(
+        user_id=current_user.id,
+        name='Do przeczytania'
+    ).first()
+    
+    if default_shelf:
+        UserLibrary.query.filter_by(shelf_id=shelf.id).update({'shelf_id': default_shelf.id})
+    else:
+        UserLibrary.query.filter_by(shelf_id=shelf.id).delete()
+    
+    db.session.delete(shelf)
+    db.session.commit()
+    
+    flash(f'Usunięto półkę "{shelf.name}"', 'success')
+    return redirect(url_for('my_library'))
+
+@app.route('/remove_from_shelf/<int:entry_id>', methods=['POST'])
+@login_required
+def remove_from_shelf(entry_id):
+    entry = UserLibrary.query.get_or_404(entry_id)
+    
+    if entry.user_id != current_user.id:
+        abort(403)
+    
+    entry.shelf_id = None
+    db.session.commit()
+    
+    flash(f'Usunięto książkę "{entry.book.title}" z bieżącej półki', 'success')
+    return redirect(request.referrer or url_for('my_library'))
 
 #
 
