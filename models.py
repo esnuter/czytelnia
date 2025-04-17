@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     is_moderator = db.Column(db.Boolean, default=False)
+    date_joined = db.Column(db.DateTime, default=datetime.utcnow)
 
     library_books = db.relationship('UserLibrary', back_populates='user')
     shelves = db.relationship('Shelf', back_populates='user', lazy='dynamic')

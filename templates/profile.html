@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Mój profil - Czytelnia.pl{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary">
+                    <h4 class="text-white"><i class="bi bi-person-circle"></i> Mój profil</h4>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-person-badge" style="font-size: 5rem;"></i>
+                    </div>
+                    <h3>{{ current_user.username }}</h3>
+                    <p class="text-muted">Czytelnik od {{ current_user.shelves.first().created_at.strftime('%d.%m.%Y') if current_user.shelves.first() else 'Nowy użytkownik' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="text-white"><i class="bi bi-bar-chart"></i> Statystyki czytania</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="display-4 text-primary">{{ reading_stats.total_books }}</div>
+                            <p class="text-muted">Wszystkie książki</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="display-4 text-success">{{ reading_stats.read_books }}</div>
+                            <p class="text-muted">Przeczytane</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="display-4 text-warning">{{ reading_stats.reading_books }}</div>
+                            <p class="text-muted">W trakcie</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-success" 
+                                 style="width: {{ (reading_stats.read_books / reading_stats.total_books * 100) if reading_stats.total_books > 0 else 0 }}%">
+                                Przeczytane
+                            </div>
+                            <div class="progress-bar bg-warning" 
+                                 style="width: {{ (reading_stats.reading_books / reading_stats.total_books * 100) if reading_stats.total_books > 0 else 0 }}%">
+                                W trakcie
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="text-white"><i class="bi bi-tags"></i> Ulubione gatunki</h4>
+                </div>
+                <div class="card-body">
+                    {% if favorite_genres %}
+                    <div class="list-group">
+                        {% for genre, count in favorite_genres %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('book_list', genre=genre.id) }}" class="text-decoration-none">
+                                {{ genre.name }}
+                            </a>
+                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">Brak danych o ulubionych gatunkach.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="text-white"><i class="bi bi-people"></i> Ulubieni autorzy</h4>
+                </div>
+                <div class="card-body">
+                    {% if favorite_authors %}
+                    <div class="list-group">
+                        {% for author, count in favorite_authors %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>{{ author }}</span>
+                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">Brak danych o ulubionych autorach.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

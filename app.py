@@ -12,6 +12,7 @@ import os
 from werkzeug.utils import secure_filename
 from PIL import Image
 import uuid
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tajny-klucz-123'  # 
@@ -20,6 +21,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///czytelnia.db'
 db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+migrate = Migrate(app, db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -146,7 +149,6 @@ def home():
     # newest books
     newest_books = Book.query.order_by(Book.date_added.desc()).limit(6).all()
     
-    # top rated
     top_rated = db.session.query(
         Book,
         db.func.avg(Review.rating).label('average_rating'),
@@ -154,12 +156,13 @@ def home():
     ).outerjoin(Review).group_by(Book.id).order_by(
         db.desc('average_rating')
     ).limit(6).all()
-    
+
     top_rated_books = []
     for book, avg_rating, review_count in top_rated:
         book.average_rating = avg_rating or 0
         book.review_count = review_count
         top_rated_books.append(book)
+    
     
     # recommended books
     recommended_books = []
@@ -167,7 +170,6 @@ def home():
     
     if current_user.is_authenticated:
         if current_user.library_books:
-            # Corrected from library_book to book
             user_authors = {entry.book.author for entry in current_user.library_books}
             user_book_ids = {entry.book_id for entry in current_user.library_books}
             
@@ -177,12 +179,14 @@ def home():
             ).limit(5).all()
             show_recommendations = True
         else:
-            recommended_books = db.session.query(
+            popular_books = db.session.query(
                 Book,
                 db.func.count(UserLibrary.id).label('user_count')
             ).join(UserLibrary).group_by(Book.id).order_by(
                 db.desc('user_count')
             ).limit(5).all()
+            
+            recommended_books = [book for book, count in popular_books]
             show_recommendations = True
     
     return render_template(
@@ -323,6 +327,9 @@ def my_library():
     shelf_id = request.args.get('shelf', type=int)
     search_query = request.args.get('search', '')
     sort_by = request.args.get('sort_by', 'added_desc')
+
+    if not current_user.shelves.first():
+        create_default_shelves(current_user)
 
     shelves = Shelf.query.filter_by(user_id=current_user.id)\
         .order_by(Shelf.is_default.desc(), Shelf.name)\
@@ -798,6 +805,58 @@ def remove_from_shelf(entry_id):
     
     flash(f'Usunięto książkę "{entry.book.title}" z bieżącej półki', 'success')
     return redirect(request.referrer or url_for('my_library'))
+
+@app.route('/profile')
+@login_required
+def profile():
+    reading_stats = {
+        'total_books': UserLibrary.query.filter_by(user_id=current_user.id).count(),
+        'read_books': UserLibrary.query.join(Shelf).filter(
+            UserLibrary.user_id == current_user.id,
+            Shelf.name == 'Przeczytane'
+        ).count(),
+        'reading_books': UserLibrary.query.join(Shelf).filter(
+            UserLibrary.user_id == current_user.id,
+            Shelf.name == 'W trakcie czytania'
+        ).count()
+    }
+
+    favorite_genres = db.session.query(
+        Genre.name,
+        db.func.count(Genre.id).label('count')
+    ).join(
+        book_genres
+    ).join(
+        Book
+    ).join(
+        UserLibrary
+    ).filter(
+        UserLibrary.user_id == current_user.id
+    ).group_by(
+        Genre.id
+    ).order_by(
+        db.desc('count')
+    ).limit(5).all()
+
+    favorite_authors = db.session.query(
+        Book.author,
+        db.func.count(Book.id).label('count')
+    ).join(
+        UserLibrary
+    ).filter(
+        UserLibrary.user_id == current_user.id
+    ).group_by(
+        Book.author
+    ).order_by(
+        db.desc('count')
+    ).limit(5).all()
+
+    return render_template(
+        'profile.html',
+        reading_stats=reading_stats,
+        favorite_genres=favorite_genres,
+        favorite_authors=favorite_authors
+    )
 
 #
 
