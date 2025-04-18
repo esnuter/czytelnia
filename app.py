@@ -2,7 +2,7 @@ from flask import Flask, render_template, redirect, url_for, flash, request, sen
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, SubmitField, SelectMultipleField
+from wtforms import StringField, PasswordField, SubmitField, SelectMultipleField, IntegerField
 from wtforms.validators import DataRequired, Length, ValidationError, Optional
 from extensions import db, login_manager, bcrypt
 from models import *
@@ -13,6 +13,8 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 import uuid
 from flask_migrate import Migrate
+from datetime import datetime, timedelta
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tajny-klucz-123'  # 
@@ -72,6 +74,7 @@ class BookForm(FlaskForm):
     cover = FileField('Okładka książki', validators=[
         FileAllowed(['jpg', 'jpeg', 'png'], 'Tylko obrazy JPG/PNG!')
     ])
+    pages = IntegerField('Liczba stron', validators=[Optional()])
     submit = SubmitField('Dodaj książkę')
 
 class ReviewForm(FlaskForm):
@@ -97,6 +100,45 @@ class GenreForm(FlaskForm):
     def validate_name(self, field):
         if Genre.query.filter(func.lower(Genre.name) == func.lower(field.data)).first():
             raise ValidationError('Gatunek o tej nazwie już istnieje')
+
+def calculate_reading_time(pages):
+    if not pages:
+        return 0
+    return pages * 2  # 2 minutes per page
+
+def get_reading_stats(user_id):
+    total_minutes = db.session.query(
+        db.func.sum(Book.pages * 2)
+    ).join(UserLibrary).filter(
+        UserLibrary.user_id == user_id,
+        Book.pages.isnot(None)
+    ).scalar() or 0
+
+    last_month_minutes = db.session.query(
+        db.func.sum(Book.pages * 2)
+    ).join(UserLibrary).filter(
+        UserLibrary.user_id == user_id,
+        Book.pages.isnot(None),
+        UserLibrary.added_at >= datetime.utcnow() - timedelta(days=30)
+    ).scalar() or 0
+
+    last_year_minutes = db.session.query(
+        db.func.sum(Book.pages * 2)
+    ).join(UserLibrary).filter(
+        UserLibrary.user_id == user_id,
+        Book.pages.isnot(None),
+        UserLibrary.added_at >= datetime.utcnow() - timedelta(days=365)
+    ).scalar() or 0
+
+    return {
+        'total': total_minutes / 60,  # w godzinach
+        'last_month': last_month_minutes / 60,
+        'last_year': last_year_minutes / 60
+    }
+
+class BulkAddBooksForm(FlaskForm):
+    books_data = TextAreaField('Dane książek (JSON)', validators=[DataRequired()])
+    submit = SubmitField('Dodaj książki')
 
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
@@ -858,11 +900,7 @@ def profile():
         .limit(5)\
         .all()
     
-    reading_time_stats = {
-        'last_week': 8,
-        'last_month': 35,
-        'total': 120
-    }
+    reading_time_stats = get_reading_stats(current_user.id)
 
     reading_goals = {
         'year': {'target': 50, 'current': 23},
@@ -877,8 +915,52 @@ def profile():
         recently_added=recently_added,
         reading_time_stats=reading_time_stats,
         reading_goals=reading_goals
-
     )
+
+@app.route('/bulk_add_books', methods=['GET', 'POST'])
+@login_required
+def bulk_add_books():
+    if not current_user.is_moderator:
+        abort(403)
+
+    form = BulkAddBooksForm()
+    
+    if form.validate_on_submit():
+        try:
+            books = json.loads(form.books_data.data)
+            added_count = 0
+            
+            for book_data in books:
+                book = Book(
+                    title=book_data.get('title'),
+                    author=book_data.get('author'),
+                    description=book_data.get('description', ''),
+                    pages=book_data.get('pages'),
+                    isbn=book_data.get('isbn', '')
+                )
+
+                if 'genres' in book_data:
+                    for genre_name in book_data['genres']:
+                        genre = Genre.query.filter_by(name=genre_name).first()
+                        if not genre:
+                            genre = Genre(name=genre_name)
+                            db.session.add(genre)
+                        book.genres.append(genre)
+                
+                db.session.add(book)
+                added_count += 1
+            
+            db.session.commit()
+            flash(f'Dodano {added_count} książek!', 'success')
+            return redirect(url_for('book_list'))
+            
+        except json.JSONDecodeError:
+            flash('Nieprawidłowy format JSON', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Wystąpił błąd: {str(e)}', 'danger')
+    
+    return render_template('bulk_add_books.html', form=form)
 
 #
 

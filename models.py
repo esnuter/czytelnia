@@ -26,6 +26,7 @@ class Book(db.Model):
     cover_url = db.Column(db.String(255)) 
     isbn = db.Column(db.String(20)) 
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    pages = db.Column(db.Integer, nullable=True)
 
     library_entries = db.relationship('UserLibrary', back_populates='book')
     book_reviews = db.relationship('Review', backref='review_book', lazy=True)

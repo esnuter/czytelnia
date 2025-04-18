@@ -100,7 +100,7 @@
 
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h4><i class="bi bi-clock-history"></i> Ostatnio dodane</h4>
+                    <h4 class="text-white"><i class="bi bi-clock-history"></i> Ostatnio dodane</h4>
                 </div>
                 <div class="card-body">
                     {% if recently_added %}
@@ -132,16 +132,16 @@
                             <canvas id="readingTimeChart" height="200"></canvas>
                             <div class="mt-3">
                                 <div class="d-flex justify-content-between">
-                                    <span>Ostatni tydzień:</span>
-                                    <strong>{{ reading_time_stats.last_week }} h</strong>
+                                    <span>Ostatni miesiąc:</span>
+                                    <strong>{{ "%.1f"|format(reading_time_stats.last_month) }} h</strong>
                                 </div>
                                 <div class="d-flex justify-content-between">
-                                    <span>Ostatni miesiąc:</span>
-                                    <strong>{{ reading_time_stats.last_month }} h</strong>
+                                    <span>Ostatni rok:</span>
+                                    <strong>{{ "%.1f"|format(reading_time_stats.last_year) }} h</strong>
                                 </div>
                                 <div class="d-flex justify-content-between">
                                     <span>Łącznie:</span>
-                                    <strong>{{ reading_time_stats.total }} h</strong>
+                                    <strong>{{ "%.1f"|format(reading_time_stats.total) }} h</strong>
                                 </div>
                             </div>
                         </div>
@@ -150,8 +150,8 @@
                 
                 <div class="col-md-6">
                     <div class="card shadow-sm mb-4">
-                        <div class="card-header bg-primary text-white">
-                            <h4><i class="bi bi-trophy"></i> Cele czytelnicze</h4>
+                        <div class="card-header bg-primary">
+                            <h4 class="text-white"><i class="bi bi-trophy"></i> Cele czytelnicze</h4>
                         </div>
                         <div class="card-body">
                             <canvas id="readingGoalsChart" height="200"></canvas>
@@ -179,24 +179,23 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Wykres czasu czytania
         const timeCtx = document.getElementById('readingTimeChart');
         if (timeCtx) {
             new Chart(timeCtx, {
                 type: 'bar',
                 data: {
-                    labels: ['Ostatni tydzień', 'Ostatni miesiąc', 'Łącznie'],
+                    labels: ['Ostatni miesiąc', 'Ostatni rok', 'Łącznie'],
                     datasets: [{
                         label: 'Godziny czytania',
                         data: [
-                            {{ reading_time_stats.last_week }},
                             {{ reading_time_stats.last_month }},
+                            {{ reading_time_stats.last_year }},
                             {{ reading_time_stats.total }}
                         ],
                         backgroundColor: [
                             'rgba(54, 162, 235, 0.7)',
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(54, 162, 235, 0.7)'
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)'
                         ]
                     }]
                 },
@@ -211,7 +210,6 @@
             });
         }
 
-        // Wykres celów czytelniczych
         const goalsCtx = document.getElementById('readingGoalsChart');
         if (goalsCtx) {
             new Chart(goalsCtx, {

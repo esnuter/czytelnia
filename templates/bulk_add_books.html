@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="bi bi-book"></i> Masowe dodawanie książek</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.books_data.label(class="form-label") }}
+                            {{ form.books_data(class="form-control", rows=15) }}
+                            <small class="form-text text-muted">
+                                Wpisz dane książek w formacie JSON. Przykład:
+                                <pre>[
+    {
+        "title": "Wiedźmin",
+        "author": "Andrzej Sapkowski",
+        "pages": 320,
+        "description": "Pierwszy tom przygód Geralta z Rivii",
+        "isbn": "9788375780635",
+        "genres": ["Fantasy", "Przygodowa"]
+    },
+    {
+        "title": "Mistrz i Małgorzata",
+        "author": "Michaił Bułhakow",
+        "pages": 480,
+        "description": "Klasyka literatury rosyjskiej",
+        "genres": ["Klasyka", "Literatura piękna"]
+    }
+]</pre>
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Dodaj książki
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
