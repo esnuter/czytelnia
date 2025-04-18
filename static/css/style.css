@@ -170,3 +170,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 
+.chart-container {
+  position: relative;
+  margin: auto;
+  height: 200px;
+  width: 100%;
+}
+.card-body canvas {
+  max-width: 100%;
+  margin-bottom: 15px;
+}

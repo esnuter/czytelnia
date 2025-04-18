@@ -851,11 +851,33 @@ def profile():
         db.desc('count')
     ).limit(5).all()
 
+    recently_added = db.session.query(Book, UserLibrary.added_at)\
+        .join(UserLibrary)\
+        .filter(UserLibrary.user_id == current_user.id)\
+        .order_by(UserLibrary.added_at.desc())\
+        .limit(5)\
+        .all()
+    
+    reading_time_stats = {
+        'last_week': 8,
+        'last_month': 35,
+        'total': 120
+    }
+
+    reading_goals = {
+        'year': {'target': 50, 'current': 23},
+        'month': {'target': 5, 'current': 3}
+    }
+
     return render_template(
         'profile.html',
         reading_stats=reading_stats,
         favorite_genres=favorite_genres,
-        favorite_authors=favorite_authors
+        favorite_authors=favorite_authors,
+        recently_added=recently_added,
+        reading_time_stats=reading_time_stats,
+        reading_goals=reading_goals
+
     )
 
 #

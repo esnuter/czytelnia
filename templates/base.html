@@ -116,12 +116,13 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     {% block scripts %}
-      <script>
+    <script>
         function confirmDelete() {
-          return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');
+            return confirm('Czy na pewno chcesz usunąć tę książkę z biblioteki?');
         }
-      </script>
+    </script>
     {% endblock %}
 </body>
 </html>
