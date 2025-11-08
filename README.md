@@ -85,5 +85,3 @@ The app allows users to:
 Created by Jakub Wielgus.
 
 ---
-
-Czy chcesz, żebym dopisał też sekcję **zrzutów ekranu (Screenshots)** i przykładowe **obrazy** (np. panel użytkownika, dodawanie książki itd.), żeby README wyglądało bardziej atrakcyjnie na GitHubie?
